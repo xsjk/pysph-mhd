@@ -30,14 +30,14 @@ MAX_DENSITY_ITERATIONS = 250
 
 
 class MHDScheme(Scheme):
-    def __init__(self, gamma, kernel, density="iterate"):
+    def __init__(self, gamma, kernel, density="iterate", hfact=HFACT):
         assert gamma > 1.0
         assert kernel in {"cubic", "quintic"}
         assert density in {"iterate", "single"}
         self.gamma = gamma
         self.kernel_name = kernel
         self.density = density
-        self.hfact = HFACT
+        self.hfact = hfact
         self.solver = None
 
     @override

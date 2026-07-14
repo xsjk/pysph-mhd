@@ -1,6 +1,7 @@
 from typing import override
 
 import numpy as np
+from compyle.config import get_config
 from pysph.base.nnps import DomainManager
 from pysph.base.utils import get_particle_array
 
@@ -11,81 +12,72 @@ class AlfvenWave(MHDApplication):
     gamma: float
     kernel: str
     density: str
+    hfact: float
     tf: float
     pfreq: int
     nx: int
-    transverse_particles: int
 
     @override
     def initialize(self):
         super().initialize()
         self.gamma = 5.0 / 3.0
         self.kernel = "quintic"
+        self.hfact = 1.0
         self.tf = 1.0
         self.pfreq = 20
-        self.nx = 32
-        self.transverse_particles = 6
+        self.nx = 64
 
     @override
     def add_user_options(self, group):
         super().add_user_options(group)
         group.add_argument("--nx", type=int, default=self.nx)
-        group.add_argument(
-            "--transverse-particles",
-            type=int,
-            default=self.transverse_particles,
-        )
 
     @override
     def consume_user_options(self):
         super().consume_user_options()
         self.nx = self.options.nx
-        self.transverse_particles = self.options.transverse_particles
         assert self.nx > 0
-        assert self.transverse_particles > 0
 
     @property
     def dx(self):
-        return 1.0 / self.nx
-
-    @property
-    def transverse_length(self):
-        return self.transverse_particles * self.dx
+        return 3.0 / self.nx
 
     @override
     def create_domain(self):
-        half_width = 0.5 * self.transverse_length
         return DomainManager(
-            xmin=-0.5,
-            xmax=0.5,
-            ymin=-half_width,
-            ymax=half_width,
-            zmin=-half_width,
-            zmax=half_width,
+            xmin=-1.5,
+            xmax=1.5,
+            ymin=-0.75,
+            ymax=0.75,
+            zmin=-0.75,
+            zmax=0.75,
             periodic_in_x=True,
             periodic_in_y=True,
             periodic_in_z=True,
+            periodic_mode="minimum_image" if get_config().use_fused_cuda else "ghost",
         )
 
     @override
     def create_mhd_particles(self):
-        half_width = 0.5 * self.transverse_length
-        x_axis = -0.5 + (np.arange(self.nx) + 0.5) * self.dx
-        transverse_axis = (
-            -half_width
-            + (np.arange(self.transverse_particles) + 0.5) * self.dx
-        )
-        grid = np.meshgrid(
-            x_axis,
-            transverse_axis,
-            transverse_axis,
-            indexing="ij",
-        )
-        x, y, z = (values.ravel() for values in grid)
-        phase = 2.0 * np.pi * (x + 0.5)
+        ny = 2 * int(1.5 / (self.dx * np.sqrt(3.0 / 4.0)) / 2)
+        nz = 3 * int((int(1.5 / (self.dx * np.sqrt(6.0) / 3.0)) + 1) / 3)
+        dy = 1.5 / ny
+        dz = 1.5 / nz
+        k, layer_y, layer_z = np.meshgrid(np.arange(self.nx), np.arange(1, ny + 1), np.arange(1, nz + 1), indexing="ij")
+        layer_y_parity = layer_y % 2
+        layer_z_modulo = layer_z % 3
+        x_offset = np.where((layer_z_modulo == 0) & (layer_y_parity == 0), 0.5, 0.0)
+        x_offset = np.where((layer_z_modulo == 2) & (layer_y_parity == 1), 0.5, x_offset)
+        x_offset = np.where((layer_z_modulo == 1) & (layer_y_parity == 0), 0.5, x_offset)
+        y_offset = np.where(layer_z_modulo == 0, 2.0 / 3.0, np.where(layer_z_modulo == 2, 1.0 / 3.0, 0.0))
+        x = (-1.5 + (0.25 + k + x_offset) * self.dx).ravel().astype(np.float32).astype(float)
+        y = (-0.75 + (layer_y - 1.0 + 1.0 / 6.0 + y_offset) * dy).ravel().astype(np.float32).astype(float)
+        z = (-0.75 + (layer_z - 0.5) * dz).ravel().astype(np.float32).astype(float)
+        phase = 2.0 * np.pi * (x + 1.5)
         by = 0.1 * np.sin(phase)
         bz = 0.1 * np.cos(phase)
         count = len(x)
+        mass = float(np.float32(6.75 / count))
         return [
             get_particle_array(
                 name="fluid",
@@ -96,14 +88,14 @@ class AlfvenWave(MHDApplication):
                 v=by,
                 w=bz,
                 rho=np.ones(count),
-                h=np.full(count, 1.2 * self.dx),
-                m=np.full(count, self.dx**3),
+                h=np.full(count, self.hfact * mass ** (1.0 / 3.0)),
+                m=np.full(count, mass),
                 e=np.full(count, 0.15),
                 Bx=np.ones(count),
                 By=by,
                 Bz=bz,
-                alpha1=np.full(count, 0.1),
-            )
+                alpha1=np.zeros(count),
+            ),
         ]
 
 

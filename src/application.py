@@ -13,6 +13,7 @@ class MHDApplication(Application):
     gamma: float
     kernel: str
     density: str
+    hfact: float
     tf: float
     pfreq: int
 
@@ -33,11 +34,12 @@ class MHDApplication(Application):
 
     @override
     def create_scheme(self):
-        assert all(hasattr(self, name) for name in ("gamma", "kernel", "tf", "pfreq"))
+        assert all(hasattr(self, name) for name in ("gamma", "kernel", "hfact", "tf", "pfreq"))
         return MHDScheme(
             gamma=self.gamma,
             kernel=self.kernel,
             density=self.density,
+            hfact=self.hfact,
         )
 
     @override
