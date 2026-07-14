@@ -1,7 +1,6 @@
 from typing import override
 
 import numpy as np
-from compyle.config import get_config
 from pysph.base.nnps import DomainManager
 from pysph.base.utils import get_particle_array
 
@@ -16,6 +15,7 @@ class AlfvenWave(MHDApplication):
     tf: float
     pfreq: int
     nx: int
+    periodic_mode: str
 
     @override
     def initialize(self):
@@ -26,16 +26,19 @@ class AlfvenWave(MHDApplication):
         self.tf = 1.0
         self.pfreq = 20
         self.nx = 64
+        self.periodic_mode = "ghost"
 
     @override
     def add_user_options(self, group):
         super().add_user_options(group)
         group.add_argument("--nx", type=int, default=self.nx)
+        group.add_argument("--periodic-mode", choices=("ghost", "minimum_image"), default=self.periodic_mode)
 
     @override
     def consume_user_options(self):
         super().consume_user_options()
         self.nx = self.options.nx
+        self.periodic_mode = self.options.periodic_mode
         assert self.nx > 0
 
     @property
@@ -54,7 +57,7 @@ class AlfvenWave(MHDApplication):
             periodic_in_x=True,
             periodic_in_y=True,
             periodic_in_z=True,
-            periodic_mode="minimum_image" if get_config().use_fused_cuda else "ghost",
+            periodic_mode=self.periodic_mode,
         )
 
     @override
