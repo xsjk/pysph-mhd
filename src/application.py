@@ -1,6 +1,7 @@
 from typing import override
 
 import numpy as np
+from pysph.base.nnps import DomainManager
 from pysph.solver.application import Application
 
 from .equations import COURANT_FACTOR, FORCE_FACTOR
@@ -16,12 +17,19 @@ class MHDApplication(Application):
     hfact: float
     tf: float
     pfreq: int
+    nx: int
+    periodic_mode: str
 
     @override
     def initialize(self):
         self.density = "iterate"
+        self.periodic_mode = "ghost"
 
     def create_mhd_particles(self):
+        raise NotImplementedError
+
+    @property
+    def bounds(self) -> tuple[float, float, float, float, float, float]:
         raise NotImplementedError
 
     @override
@@ -31,6 +39,22 @@ class MHDApplication(Application):
         assert particles[0].name == "fluid"
         self.scheme.setup_properties(particles[0])
         return particles
+
+    @override
+    def create_domain(self):
+        xmin, xmax, ymin, ymax, zmin, zmax = self.bounds
+        return DomainManager(
+            xmin=xmin,
+            xmax=xmax,
+            ymin=ymin,
+            ymax=ymax,
+            zmin=zmin,
+            zmax=zmax,
+            periodic_in_x=True,
+            periodic_in_y=True,
+            periodic_in_z=True,
+            periodic_mode=self.periodic_mode,
+        )
 
     @override
     def create_scheme(self):
@@ -49,10 +73,19 @@ class MHDApplication(Application):
             choices=("iterate", "single"),
             default=self.density,
         )
+        group.add_argument("--nx", type=int, default=self.nx)
+        group.add_argument(
+            "--periodic-mode",
+            choices=("ghost", "minimum_image"),
+            default=self.periodic_mode,
+        )
 
     @override
     def consume_user_options(self):
         self.density = self.options.density
+        self.nx = self.options.nx
+        self.periodic_mode = self.options.periodic_mode
+        assert self.nx > 0
 
     @override
     def configure_scheme(self):
