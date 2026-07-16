@@ -103,17 +103,25 @@ class MHDApplication(Application):
 
     def _warm_initial_derivatives(self, solver):
         particle = self.particles[0]
+        initial_magnetic_field = (particle.Bx.copy(), particle.By.copy(), particle.Bz.copy())
+        particle.h0[:] = particle.h
+        self._sync_initial_mhd_state(particle)
+        if particle.gpu is not None:
+            particle.gpu.push("h0")
         solver.integrator.initial_acceleration(solver.t, solver.dt)
         if particle.gpu is not None:
             particle.gpu.pull("rho", "h")
+        particle.Bx[:], particle.By[:], particle.Bz[:] = initial_magnetic_field
         self.refresh_initial_thermodynamics(particle)
+        particle.h0[:] = particle.h
         if particle.gpu is not None:
-            particle.gpu.push("e")
+            particle.gpu.push("e", "h0")
         self._sync_initial_mhd_state(particle)
         for _ in range(2):
             solver.integrator.initial_acceleration(solver.t, solver.dt)
         if particle.gpu is not None:
-            particle.gpu.pull("rho", "h", "Bx", "By", "Bz")
+            particle.gpu.pull("rho", "h", "Bx", "By", "Bz", "converged")
+        assert np.all(particle.converged == 1)
         solver.initial_acceleration_is_current = True
 
     def _compute_initial_dt(self, solver):
