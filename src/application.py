@@ -110,7 +110,8 @@ class MHDApplication(Application):
             particle.gpu.push("h0")
         solver.integrator.initial_acceleration(solver.t, solver.dt)
         if particle.gpu is not None:
-            particle.gpu.pull("rho", "h")
+            particle.gpu.pull("rho", "h", "converged")
+        assert np.all(particle.converged == 1)
         particle.Bx[:], particle.By[:], particle.Bz[:] = initial_magnetic_field
         self.refresh_initial_thermodynamics(particle)
         particle.h0[:] = particle.h
