@@ -35,6 +35,8 @@ class MHDScheme(Scheme):
         self.kernel_name = config.numerics.kernel
         self.density = config.numerics.density
         self.hfact = config.numerics.hfact
+        self.artificial_viscosity = config.physics.artificial_viscosity
+        self.artificial_thermal_conductivity = config.physics.artificial_thermal_conductivity
         self.artificial_magnetic_dissipation = config.physics.artificial_magnetic_dissipation
         self.solver = None
 
@@ -59,7 +61,7 @@ class MHDScheme(Scheme):
             Group(equations=[IdealGasEOS(dest="fluid", sources=None, gamma=self.gamma)]),
             Group(equations=[CullenDehnenAlphaDiagnostics(dest="fluid", sources=sources)]),
             Group(equations=[StrainDiagnostics(dest="fluid", sources=None), MagneticStateReconstruction(dest="fluid", sources=None)]),
-            Group(equations=[MHDAccelerations(dest="fluid", sources=sources, mu0=self.mu0)]),
+            Group(equations=[MHDAccelerations(dest="fluid", sources=sources, mu0=self.mu0, artificial_viscosity=self.artificial_viscosity, artificial_thermal_conductivity=self.artificial_thermal_conductivity)]),
             Group(equations=[SmoothingLengthRateFromForceDivergence(dest="fluid", sources=None, dim=3)]),
             Group(equations=[MagneticStressAccelerations(dest="fluid", sources=sources, mu0=self.mu0)]),
             Group(equations=[MagneticStateRates(dest="fluid", sources=sources, mu0=self.mu0, artificial_magnetic_dissipation=self.artificial_magnetic_dissipation)]),

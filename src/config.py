@@ -25,6 +25,8 @@ class CaseConfig:
 class PhysicsConfig:
     gamma: float
     mu0: float
+    artificial_viscosity: float
+    artificial_thermal_conductivity: float
     artificial_magnetic_dissipation: float
 
 
@@ -74,14 +76,14 @@ def load_config(path):
     solver = values["solver"]
     execution = values["execution"]
     _assert_fields(case, ("name", "nx"))
-    _assert_fields(physics, ("gamma", "mu0", "artificial_magnetic_dissipation"))
+    _assert_fields(physics, ("gamma", "mu0", "artificial_viscosity", "artificial_thermal_conductivity", "artificial_magnetic_dissipation"))
     _assert_fields(numerics, ("kernel", "hfact", "density", "periodic_mode"))
     _assert_fields(solver, ("tf", "pfreq", "adaptive_timestep"))
     _assert_fields(execution, ("backend", "fused", "directory"))
 
     config = SimulationConfig(
         case=CaseConfig(name=case["name"], nx=case["nx"]),
-        physics=PhysicsConfig(gamma=physics["gamma"], mu0=physics["mu0"], artificial_magnetic_dissipation=physics["artificial_magnetic_dissipation"]),
+        physics=PhysicsConfig(gamma=physics["gamma"], mu0=physics["mu0"], artificial_viscosity=physics["artificial_viscosity"], artificial_thermal_conductivity=physics["artificial_thermal_conductivity"], artificial_magnetic_dissipation=physics["artificial_magnetic_dissipation"]),
         numerics=NumericsConfig(kernel=numerics["kernel"], hfact=numerics["hfact"], density=numerics["density"], periodic_mode=numerics["periodic_mode"]),
         solver=SolverConfig(tf=solver["tf"], pfreq=solver["pfreq"], adaptive_timestep=solver["adaptive_timestep"]),
         execution=ExecutionConfig(backend=execution["backend"], fused=execution["fused"], directory=execution["directory"]),
@@ -98,6 +100,10 @@ def _validate_config(config):
     assert config.physics.gamma > 1.0
     assert type(config.physics.mu0) is float
     assert config.physics.mu0 > 0.0
+    assert type(config.physics.artificial_viscosity) is float
+    assert config.physics.artificial_viscosity >= 0.0
+    assert type(config.physics.artificial_thermal_conductivity) is float
+    assert config.physics.artificial_thermal_conductivity >= 0.0
     assert type(config.physics.artificial_magnetic_dissipation) is float
     assert config.physics.artificial_magnetic_dissipation >= 0.0
     assert config.numerics.kernel in {"cubic", "quintic"}
