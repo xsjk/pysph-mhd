@@ -1,6 +1,6 @@
 [case]
 name = "alfven"
-nx = 64
+nx = 192
 
 [physics]
 gamma = 1.6666666666666667
@@ -10,17 +10,18 @@ artificial_thermal_conductivity = 0.0
 artificial_magnetic_dissipation = 0.0
 
 [numerics]
-kernel = "quintic"
-hfact = 1.0
+kernel = "wendland_c6"
+hfact = 1.48
 density = "iterate"
 periodic_mode = "minimum_image"
-cleaning_speed_factor = 1.0
-cleaning_damping_factor = 1.0
+cleaning_speed_factor = 0.0
+cleaning_damping_factor = 0.0
 
 [solver]
 tf = 1.0
 pfreq = 20
 adaptive_timestep = true
+timestep_factor = 0.5
 
 [execution]
 backend = "cuda"

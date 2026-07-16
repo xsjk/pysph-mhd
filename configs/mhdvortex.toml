@@ -1,6 +1,6 @@
 [case]
 name = "mhdvortex"
-nx = 512
+nx = 256
 
 [physics]
 gamma = 1.6666666666666667
@@ -11,16 +11,17 @@ artificial_magnetic_dissipation = 0.0
 
 [numerics]
 kernel = "wendland_c6"
-hfact = 4.2
+hfact = 3.6
 density = "iterate"
 periodic_mode = "minimum_image"
 cleaning_speed_factor = 1.0
-cleaning_damping_factor = 1.0
+cleaning_damping_factor = 0.3
 
 [solver]
 tf = 10.0
 pfreq = 20
 adaptive_timestep = true
+timestep_factor = 0.3
 
 [execution]
 backend = "cuda"

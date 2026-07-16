@@ -40,6 +40,7 @@ class MHDScheme(Scheme):
         self.artificial_magnetic_dissipation = config.physics.artificial_magnetic_dissipation
         self.cleaning_speed_factor = config.numerics.cleaning_speed_factor
         self.cleaning_damping_factor = config.numerics.cleaning_damping_factor
+        self.timestep_factor = config.solver.timestep_factor
         self.solver = None
 
     @override
@@ -76,5 +77,5 @@ class MHDScheme(Scheme):
             Group(equations=[SmoothingLengthRateFromForceDivergence(dest="fluid", sources=None, dim=3)]),
             Group(equations=[MagneticStressAccelerations(dest="fluid", sources=sources, mu0=self.mu0)]),
             Group(equations=[MagneticStateRates(dest="fluid", sources=sources, mu0=self.mu0, artificial_magnetic_dissipation=self.artificial_magnetic_dissipation, cleaning_speed_factor=self.cleaning_speed_factor, cleaning_damping_factor=self.cleaning_damping_factor)]),
-            Group(equations=[EnergyLimiter(dest="fluid", sources=None), DivBCorrection(dest="fluid", sources=None, mu0=self.mu0), AdaptiveTimestep(dest="fluid", sources=None)]),
+            Group(equations=[EnergyLimiter(dest="fluid", sources=None, timestep_factor=self.timestep_factor), DivBCorrection(dest="fluid", sources=None, mu0=self.mu0), AdaptiveTimestep(dest="fluid", sources=None, timestep_factor=self.timestep_factor)]),
         ]

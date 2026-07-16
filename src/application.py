@@ -17,6 +17,7 @@ class MHDApplication(Application):
     hfact: float
     tf: float
     pfreq: int
+    timestep_factor: float
     nx: int
     periodic_mode: str
 
@@ -35,6 +36,7 @@ class MHDApplication(Application):
         self.tf = self.config.solver.tf
         self.pfreq = self.config.solver.pfreq
         self.adaptive_timestep = self.config.solver.adaptive_timestep
+        self.timestep_factor = self.config.solver.timestep_factor
         self.nx = self.config.case.nx
 
     def create_mhd_particles(self):
@@ -131,11 +133,11 @@ class MHDApplication(Application):
             particle.gpu.pull("h", "dt_cfl", "au", "av", "aw")
         force_norm = np.sqrt(particle.au * particle.au + particle.av * particle.av + particle.aw * particle.aw)
         assert np.all(particle.dt_cfl > 0.0)
-        dt_courant = COURANT_FACTOR * particle.h / particle.dt_cfl
+        dt_courant = self.timestep_factor * COURANT_FACTOR * particle.h / particle.dt_cfl
         dt_candidates = [float(np.min(dt_courant))]
         force_mask = force_norm > 0.0
         if np.any(force_mask):
-            dt_force = FORCE_FACTOR * np.sqrt(particle.h[force_mask] / force_norm[force_mask])
+            dt_force = self.timestep_factor * FORCE_FACTOR * np.sqrt(particle.h[force_mask] / force_norm[force_mask])
             dt_candidates.append(float(np.min(dt_force)))
         solver.dt = min(dt_candidates)
         assert solver.dt > 0.0

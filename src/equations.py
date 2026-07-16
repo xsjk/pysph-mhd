@@ -568,9 +568,9 @@ class MagneticStateRates(Equation):
 
 
 class AdaptiveTimestep(Equation):
-    def __init__(self, dest, sources):
-        self.c_cour = COURANT_FACTOR
-        self.c_force = FORCE_FACTOR
+    def __init__(self, dest, sources, timestep_factor):
+        self.c_cour = timestep_factor * COURANT_FACTOR
+        self.c_force = timestep_factor * FORCE_FACTOR
         self.bignumber = 1.0e29
         super().__init__(dest, sources)
 
@@ -586,8 +586,8 @@ class AdaptiveTimestep(Equation):
 
 
 class EnergyLimiter(Equation):
-    def __init__(self, dest, sources):
-        self.c_cour = COURANT_FACTOR
+    def __init__(self, dest, sources, timestep_factor):
+        self.c_cour = timestep_factor * COURANT_FACTOR
         super().__init__(dest, sources)
 
     @override

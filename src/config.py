@@ -45,6 +45,7 @@ class SolverConfig:
     tf: float
     pfreq: int
     adaptive_timestep: bool
+    timestep_factor: float
 
 
 @dataclass(frozen=True)
@@ -80,14 +81,14 @@ def load_config(path):
     _assert_fields(case, ("name", "nx"))
     _assert_fields(physics, ("gamma", "mu0", "artificial_viscosity", "artificial_thermal_conductivity", "artificial_magnetic_dissipation"))
     _assert_fields(numerics, ("kernel", "hfact", "density", "periodic_mode", "cleaning_speed_factor", "cleaning_damping_factor"))
-    _assert_fields(solver, ("tf", "pfreq", "adaptive_timestep"))
+    _assert_fields(solver, ("tf", "pfreq", "adaptive_timestep", "timestep_factor"))
     _assert_fields(execution, ("backend", "fused", "directory"))
 
     config = SimulationConfig(
         case=CaseConfig(name=case["name"], nx=case["nx"]),
         physics=PhysicsConfig(gamma=physics["gamma"], mu0=physics["mu0"], artificial_viscosity=physics["artificial_viscosity"], artificial_thermal_conductivity=physics["artificial_thermal_conductivity"], artificial_magnetic_dissipation=physics["artificial_magnetic_dissipation"]),
         numerics=NumericsConfig(kernel=numerics["kernel"], hfact=numerics["hfact"], density=numerics["density"], periodic_mode=numerics["periodic_mode"], cleaning_speed_factor=numerics["cleaning_speed_factor"], cleaning_damping_factor=numerics["cleaning_damping_factor"]),
-        solver=SolverConfig(tf=solver["tf"], pfreq=solver["pfreq"], adaptive_timestep=solver["adaptive_timestep"]),
+        solver=SolverConfig(tf=solver["tf"], pfreq=solver["pfreq"], adaptive_timestep=solver["adaptive_timestep"], timestep_factor=solver["timestep_factor"]),
         execution=ExecutionConfig(backend=execution["backend"], fused=execution["fused"], directory=execution["directory"]),
     )
     _validate_config(config)
@@ -122,6 +123,8 @@ def _validate_config(config):
     assert type(config.solver.pfreq) is int
     assert config.solver.pfreq > 0
     assert type(config.solver.adaptive_timestep) is bool
+    assert type(config.solver.timestep_factor) is float
+    assert config.solver.timestep_factor > 0.0
     assert config.execution.backend in {"cython", "cuda", "opencl"}
     assert type(config.execution.fused) is bool
     assert not config.execution.fused or config.execution.backend == "cuda"

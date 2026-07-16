@@ -21,6 +21,7 @@ cleaning_damping_factor = 1.0
 tf = 0.15
 pfreq = 20
 adaptive_timestep = true
+timestep_factor = 1.0
 
 [execution]
 backend = "cuda"
