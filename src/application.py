@@ -20,10 +20,22 @@ class MHDApplication(Application):
     nx: int
     periodic_mode: str
 
+    def __init__(self, config):
+        self.config = config
+        super().__init__(fname=config.case.name)
+
     @override
     def initialize(self):
-        self.density = "iterate"
-        self.periodic_mode = "ghost"
+        self.gamma = self.config.physics.gamma
+        self.mu0 = self.config.physics.mu0
+        self.kernel = self.config.numerics.kernel
+        self.hfact = self.config.numerics.hfact
+        self.density = self.config.numerics.density
+        self.periodic_mode = self.config.numerics.periodic_mode
+        self.tf = self.config.solver.tf
+        self.pfreq = self.config.solver.pfreq
+        self.adaptive_timestep = self.config.solver.adaptive_timestep
+        self.nx = self.config.case.nx
 
     def create_mhd_particles(self):
         raise NotImplementedError
@@ -61,42 +73,14 @@ class MHDApplication(Application):
 
     @override
     def create_scheme(self):
-        assert all(hasattr(self, name) for name in ("gamma", "kernel", "hfact", "tf", "pfreq"))
-        return MHDScheme(
-            gamma=self.gamma,
-            kernel=self.kernel,
-            density=self.density,
-            hfact=self.hfact,
-        )
-
-    @override
-    def add_user_options(self, group):
-        group.add_argument(
-            "--density",
-            choices=("iterate", "single"),
-            default=self.density,
-        )
-        group.add_argument("--nx", type=int, default=self.nx)
-        group.add_argument(
-            "--periodic-mode",
-            choices=("ghost", "minimum_image"),
-            default=self.periodic_mode,
-        )
-
-    @override
-    def consume_user_options(self):
-        self.density = self.options.density
-        self.nx = self.options.nx
-        self.periodic_mode = self.options.periodic_mode
-        assert self.nx > 0
+        return MHDScheme(self.config)
 
     @override
     def configure_scheme(self):
-        self.scheme.configure(density=self.density)
         self.scheme.configure_solver(
             dt=1.0,
             tf=self.tf,
-            adaptive_timestep=True,
+            adaptive_timestep=self.adaptive_timestep,
             pfreq=self.pfreq,
         )
 

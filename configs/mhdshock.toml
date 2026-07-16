@@ -1,0 +1,24 @@
+[case]
+name = "mhdshock"
+nx = 256
+
+[physics]
+gamma = 2.0
+mu0 = 1.0
+artificial_magnetic_dissipation = 1.0
+
+[numerics]
+kernel = "quintic"
+hfact = 1.0
+density = "iterate"
+periodic_mode = "minimum_image"
+
+[solver]
+tf = 0.1
+pfreq = 20
+adaptive_timestep = true
+
+[execution]
+backend = "cuda"
+fused = true
+directory = "outputs/mhdshock"

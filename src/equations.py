@@ -3,7 +3,6 @@ from typing import override
 
 from pysph.sph.equation import Equation
 
-MU0 = 1.0
 DENSITY_TOLERANCE = 1.0e-4
 COURANT_FACTOR = 0.3
 FORCE_FACTOR = 0.25
@@ -142,8 +141,8 @@ class SmoothingLengthRateFromForceDivergence(Equation):
 
 
 class MagneticStressAccelerations(Equation):
-    def __init__(self, dest, sources):
-        self.mu0 = MU0
+    def __init__(self, dest, sources, mu0):
+        self.mu0 = mu0
         super().__init__(dest, sources)
 
     @override
@@ -197,9 +196,9 @@ class MagneticStressAccelerations(Equation):
 
 
 class MHDAccelerations(Equation):
-    def __init__(self, dest, sources):
+    def __init__(self, dest, sources, mu0):
         self.beta = 2.0
-        self.mu0 = MU0
+        self.mu0 = mu0
         super().__init__(dest, sources)
 
     @override
@@ -485,9 +484,10 @@ class MagneticStateReconstruction(Equation):
 
 
 class MagneticStateRates(Equation):
-    def __init__(self, dest, sources):
+    def __init__(self, dest, sources, mu0, artificial_magnetic_dissipation):
         super().__init__(dest, sources)
-        self.mu0 = MU0
+        self.mu0 = mu0
+        self.artificial_magnetic_dissipation = artificial_magnetic_dissipation
 
     @override
     def initialize(self, d_idx, d_aBevolx, d_aBevoly, d_aBevolz, d_apsi, d_divBsymm, d_divBdiff):
@@ -539,7 +539,7 @@ class MagneticStateRates(Equation):
         dvyt = dvy - projv * runiy
         dvzt = dvz - projv * runiz
         vsig_b = sqrt(dvxt * dvxt + dvyt * dvyt + dvzt * dvzt)
-        d_b_diss_term = 0.5 * (d_m[d_idx] * rho_i2_inv * grad_i + s_m[s_idx] * rho_j2_inv * grad_j) * vsig_b
+        d_b_diss_term = 0.5 * (d_m[d_idx] * rho_i2_inv * grad_i + s_m[s_idx] * rho_j2_inv * grad_j) * vsig_b * self.artificial_magnetic_dissipation
         vwave_i = sqrt(d_cs[d_idx] * d_cs[d_idx] + (bx_i * bx_i + by_i * by_i + bz_i * bz_i) / (self.mu0 * rho_i))
         vwave_j = sqrt(s_cs[s_idx] * s_cs[s_idx] + (bx_j * bx_j + by_j * by_j + bz_j * bz_j) / (self.mu0 * rho_j))
         dpsi_term = pmj_rho21_grad_i * d_psipred[d_idx] * vwave_i + pmj_rho21_grad_j * s_psipred[s_idx] * vwave_j
@@ -590,8 +590,8 @@ class EnergyLimiter(Equation):
 
 
 class DivBCorrection(Equation):
-    def __init__(self, dest, sources):
-        self.mu0 = MU0
+    def __init__(self, dest, sources, mu0):
+        self.mu0 = mu0
         super().__init__(dest, sources)
 
     @override

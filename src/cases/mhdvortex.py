@@ -13,16 +13,6 @@ def mhdvortex_pressure(x, y):
 
 
 class MHDVortex(MHDApplication):
-    @override
-    def initialize(self):
-        super().initialize()
-        self.gamma = 5.0 / 3.0
-        self.kernel = "cubic"
-        self.hfact = 1.2
-        self.tf = 10.0
-        self.pfreq = 20
-        self.nx = 64
-
     @property
     @override
     def bounds(self):
@@ -62,7 +52,3 @@ class MHDVortex(MHDApplication):
                 alpha1=np.zeros(count),
             ),
         ]
-
-
-if __name__ == "__main__":
-    MHDVortex().run()

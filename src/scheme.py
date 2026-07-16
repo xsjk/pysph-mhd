@@ -25,27 +25,18 @@ from .integrator import MHDStep
 from .particles import BASE_PROPERTIES, OUTPUT_PROPERTIES, PROPERTIES
 from .solver import MHDSolver
 
-HFACT = 1.2
 MAX_DENSITY_ITERATIONS = 250
 
 
 class MHDScheme(Scheme):
-    def __init__(self, gamma, kernel, density="iterate", hfact=HFACT):
-        assert gamma > 1.0
-        assert kernel in {"cubic", "quintic"}
-        assert density in {"iterate", "single"}
-        self.gamma = gamma
-        self.kernel_name = kernel
-        self.density = density
-        self.hfact = hfact
+    def __init__(self, config):
+        self.gamma = config.physics.gamma
+        self.mu0 = config.physics.mu0
+        self.kernel_name = config.numerics.kernel
+        self.density = config.numerics.density
+        self.hfact = config.numerics.hfact
+        self.artificial_magnetic_dissipation = config.physics.artificial_magnetic_dissipation
         self.solver = None
-
-    @override
-    def configure(self, **kw):
-        assert tuple(kw) == ("density",)
-        density = kw["density"]
-        assert density in {"iterate", "single"}
-        self.density = density
 
     @override
     def configure_solver(self, **kw):
@@ -68,9 +59,9 @@ class MHDScheme(Scheme):
             Group(equations=[IdealGasEOS(dest="fluid", sources=None, gamma=self.gamma)]),
             Group(equations=[CullenDehnenAlphaDiagnostics(dest="fluid", sources=sources)]),
             Group(equations=[StrainDiagnostics(dest="fluid", sources=None), MagneticStateReconstruction(dest="fluid", sources=None)]),
-            Group(equations=[MHDAccelerations(dest="fluid", sources=sources)]),
+            Group(equations=[MHDAccelerations(dest="fluid", sources=sources, mu0=self.mu0)]),
             Group(equations=[SmoothingLengthRateFromForceDivergence(dest="fluid", sources=None, dim=3)]),
-            Group(equations=[MagneticStressAccelerations(dest="fluid", sources=sources)]),
-            Group(equations=[MagneticStateRates(dest="fluid", sources=sources)]),
-            Group(equations=[EnergyLimiter(dest="fluid", sources=None), DivBCorrection(dest="fluid", sources=None), AdaptiveTimestep(dest="fluid", sources=None)]),
+            Group(equations=[MagneticStressAccelerations(dest="fluid", sources=sources, mu0=self.mu0)]),
+            Group(equations=[MagneticStateRates(dest="fluid", sources=sources, mu0=self.mu0, artificial_magnetic_dissipation=self.artificial_magnetic_dissipation)]),
+            Group(equations=[EnergyLimiter(dest="fluid", sources=None), DivBCorrection(dest="fluid", sources=None, mu0=self.mu0), AdaptiveTimestep(dest="fluid", sources=None)]),
         ]

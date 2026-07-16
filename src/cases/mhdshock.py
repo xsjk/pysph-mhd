@@ -8,21 +8,6 @@ from .lattice import close_packed_lattice
 
 
 class MHDShock(MHDApplication):
-    @override
-    def initialize(self):
-        super().initialize()
-        self.gamma = 2.0
-        self.kernel = "quintic"
-        self.hfact = 1.0
-        self.tf = 0.1
-        self.pfreq = 20
-        self.nx = 256
-
-    @override
-    def consume_user_options(self):
-        super().consume_user_options()
-        assert self.nx % 2 == 0
-
     @property
     @override
     def bounds(self):
@@ -34,6 +19,7 @@ class MHDShock(MHDApplication):
 
     @override
     def create_mhd_particles(self):
+        assert self.nx % 2 == 0
         _, _, ymin, ymax, zmin, zmax = self.bounds
         dx_left = 0.5 / self.nx
         dx_right = 2.0 * dx_left
@@ -74,7 +60,3 @@ class MHDShock(MHDApplication):
                 itype=particle_type,
             ),
         ]
-
-
-if __name__ == "__main__":
-    MHDShock().run()

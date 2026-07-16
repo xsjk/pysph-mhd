@@ -8,16 +8,6 @@ from .lattice import close_packed_lattice
 
 
 class AlfvenWave(MHDApplication):
-    @override
-    def initialize(self):
-        super().initialize()
-        self.gamma = 5.0 / 3.0
-        self.kernel = "quintic"
-        self.hfact = 1.0
-        self.tf = 1.0
-        self.pfreq = 20
-        self.nx = 64
-
     @property
     @override
     def bounds(self):
@@ -57,7 +47,3 @@ class AlfvenWave(MHDApplication):
                 alpha1=np.zeros(count),
             ),
         ]
-
-
-if __name__ == "__main__":
-    AlfvenWave().run()
