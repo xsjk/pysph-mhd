@@ -1,0 +1,6 @@
+uv.lock
+__pycache__/
+outputs/
+docs/
+*.toml
+*.yml
