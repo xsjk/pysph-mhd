@@ -1,6 +1,6 @@
 [case]
 name = "mhdvortex"
-nx = 64
+nx = 512
 
 [physics]
 gamma = 1.6666666666666667
@@ -10,10 +10,12 @@ artificial_thermal_conductivity = 0.0
 artificial_magnetic_dissipation = 0.0
 
 [numerics]
-kernel = "quintic"
-hfact = 1.0
+kernel = "wendland_c6"
+hfact = 4.2
 density = "iterate"
 periodic_mode = "minimum_image"
+cleaning_speed_factor = 1.0
+cleaning_damping_factor = 1.0
 
 [solver]
 tf = 10.0

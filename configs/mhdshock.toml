@@ -14,6 +14,8 @@ kernel = "quintic"
 hfact = 1.0
 density = "iterate"
 periodic_mode = "minimum_image"
+cleaning_speed_factor = 1.0
+cleaning_damping_factor = 1.0
 
 [solver]
 tf = 0.1

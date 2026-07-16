@@ -36,6 +36,8 @@ class NumericsConfig:
     hfact: float
     density: str
     periodic_mode: str
+    cleaning_speed_factor: float
+    cleaning_damping_factor: float
 
 
 @dataclass(frozen=True)
@@ -77,14 +79,14 @@ def load_config(path):
     execution = values["execution"]
     _assert_fields(case, ("name", "nx"))
     _assert_fields(physics, ("gamma", "mu0", "artificial_viscosity", "artificial_thermal_conductivity", "artificial_magnetic_dissipation"))
-    _assert_fields(numerics, ("kernel", "hfact", "density", "periodic_mode"))
+    _assert_fields(numerics, ("kernel", "hfact", "density", "periodic_mode", "cleaning_speed_factor", "cleaning_damping_factor"))
     _assert_fields(solver, ("tf", "pfreq", "adaptive_timestep"))
     _assert_fields(execution, ("backend", "fused", "directory"))
 
     config = SimulationConfig(
         case=CaseConfig(name=case["name"], nx=case["nx"]),
         physics=PhysicsConfig(gamma=physics["gamma"], mu0=physics["mu0"], artificial_viscosity=physics["artificial_viscosity"], artificial_thermal_conductivity=physics["artificial_thermal_conductivity"], artificial_magnetic_dissipation=physics["artificial_magnetic_dissipation"]),
-        numerics=NumericsConfig(kernel=numerics["kernel"], hfact=numerics["hfact"], density=numerics["density"], periodic_mode=numerics["periodic_mode"]),
+        numerics=NumericsConfig(kernel=numerics["kernel"], hfact=numerics["hfact"], density=numerics["density"], periodic_mode=numerics["periodic_mode"], cleaning_speed_factor=numerics["cleaning_speed_factor"], cleaning_damping_factor=numerics["cleaning_damping_factor"]),
         solver=SolverConfig(tf=solver["tf"], pfreq=solver["pfreq"], adaptive_timestep=solver["adaptive_timestep"]),
         execution=ExecutionConfig(backend=execution["backend"], fused=execution["fused"], directory=execution["directory"]),
     )
@@ -106,11 +108,15 @@ def _validate_config(config):
     assert config.physics.artificial_thermal_conductivity >= 0.0
     assert type(config.physics.artificial_magnetic_dissipation) is float
     assert config.physics.artificial_magnetic_dissipation >= 0.0
-    assert config.numerics.kernel in {"cubic", "quintic"}
+    assert config.numerics.kernel in {"cubic", "quintic", "wendland_c2", "wendland_c4", "wendland_c6", "gaussian", "super_gaussian"}
     assert type(config.numerics.hfact) is float
     assert config.numerics.hfact > 0.0
     assert config.numerics.density in {"iterate", "single"}
     assert config.numerics.periodic_mode in {"ghost", "minimum_image"}
+    assert type(config.numerics.cleaning_speed_factor) is float
+    assert config.numerics.cleaning_speed_factor >= 0.0
+    assert type(config.numerics.cleaning_damping_factor) is float
+    assert config.numerics.cleaning_damping_factor >= 0.0
     assert type(config.solver.tf) is float
     assert config.solver.tf > 0.0
     assert type(config.solver.pfreq) is int

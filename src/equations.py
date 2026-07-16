@@ -486,10 +486,13 @@ class MagneticStateReconstruction(Equation):
 
 
 class MagneticStateRates(Equation):
-    def __init__(self, dest, sources, mu0, artificial_magnetic_dissipation):
+    def __init__(self, dest, sources, mu0, artificial_magnetic_dissipation, cleaning_speed_factor, cleaning_damping_factor):
         super().__init__(dest, sources)
         self.mu0 = mu0
         self.artificial_magnetic_dissipation = artificial_magnetic_dissipation
+        self.cleaning_speed_factor = cleaning_speed_factor
+        self.cleaning_damping_factor = cleaning_damping_factor
+        self.cleaning_active = float(cleaning_speed_factor > 0.0)
 
     @override
     def initialize(self, d_idx, d_aBevolx, d_aBevoly, d_aBevolz, d_apsi, d_divBsymm, d_divBdiff):
@@ -544,7 +547,9 @@ class MagneticStateRates(Equation):
         d_b_diss_term = 0.5 * (s_m[s_idx] * rho_i2_inv * grad_i + s_m[s_idx] * rho_j2_inv * grad_j) * vsig_b * self.artificial_magnetic_dissipation
         vwave_i = sqrt(d_cs[d_idx] * d_cs[d_idx] + (bx_i * bx_i + by_i * by_i + bz_i * bz_i) / (self.mu0 * rho_i))
         vwave_j = sqrt(s_cs[s_idx] * s_cs[s_idx] + (bx_j * bx_j + by_j * by_j + bz_j * bz_j) / (self.mu0 * rho_j))
-        dpsi_term = pmj_rho21_grad_i * d_psipred[d_idx] * vwave_i + pmj_rho21_grad_j * s_psipred[s_idx] * vwave_j
+        ch_i = self.cleaning_speed_factor * vwave_i
+        ch_j = self.cleaning_speed_factor * vwave_j
+        dpsi_term = pmj_rho21_grad_i * d_psipred[d_idx] * ch_i + pmj_rho21_grad_j * s_psipred[s_idx] * ch_j
 
         d_aBevolx[d_idx] += d_brho_term * dvx + d_b_diss_term * dbx - dpsi_term * runix
         d_aBevoly[d_idx] += d_brho_term * dvy + d_b_diss_term * dby - dpsi_term * runiy
@@ -556,8 +561,10 @@ class MagneticStateRates(Equation):
     @override
     def post_loop(self, d_idx, d_rho, d_h, d_psipred, d_cs, d_div, d_div_for_psi, d_Bxpred, d_Bypred, d_Bzpred, d_apsi, d_divBdiff, d_dt_cfl):
         vwave = sqrt(d_cs[d_idx] * d_cs[d_idx] + (d_Bxpred[d_idx] * d_Bxpred[d_idx] + d_Bypred[d_idx] * d_Bypred[d_idx] + d_Bzpred[d_idx] * d_Bzpred[d_idx]) / (self.mu0 * d_rho[d_idx]))
-        d_apsi[d_idx] = -vwave * d_divBdiff[d_idx] / d_rho[d_idx] - d_psipred[d_idx] * vwave / d_h[d_idx] - 0.5 * d_psipred[d_idx] * d_div_for_psi[d_idx]
+        ch = self.cleaning_speed_factor * vwave
+        d_apsi[d_idx] = -ch * d_divBdiff[d_idx] / d_rho[d_idx] - self.cleaning_damping_factor * d_psipred[d_idx] * ch / d_h[d_idx] - 0.5 * self.cleaning_active * d_psipred[d_idx] * d_div_for_psi[d_idx]
         d_dt_cfl[d_idx] = max(d_dt_cfl[d_idx], vwave)
+        d_dt_cfl[d_idx] = max(d_dt_cfl[d_idx], ch)
 
 
 class AdaptiveTimestep(Equation):
