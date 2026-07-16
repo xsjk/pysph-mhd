@@ -7,6 +7,11 @@ from ..application import MHDApplication
 from .lattice import close_packed_lattice
 
 
+def mhdvortex_pressure(x, y):
+    s = 1.0 - x * x - y * y
+    return 1.0 + np.exp(s) * (s - 1.0) / (8.0 * np.pi**2)
+
+
 class MHDVortex(MHDApplication):
     @override
     def initialize(self):
@@ -25,6 +30,11 @@ class MHDVortex(MHDApplication):
         return -5.0, 5.0, -5.0, 5.0, -zmax, zmax
 
     @override
+    def refresh_initial_thermodynamics(self, particle):
+        pressure = mhdvortex_pressure(particle.x, particle.y)
+        particle.e[:] = pressure / ((self.gamma - 1.0) * particle.rho)
+
+    @override
     def create_mhd_particles(self):
         xmin, xmax, ymin, ymax, zmin, zmax = self.bounds
         x, y, z = close_packed_lattice(self.bounds, (xmax - xmin) / self.nx)
@@ -32,7 +42,7 @@ class MHDVortex(MHDApplication):
         rho = 1.0
         mass = rho * (xmax - xmin) * (ymax - ymin) * (zmax - zmin) / count
         factor = np.exp(0.5 * (1.0 - x * x - y * y)) / (2.0 * np.pi)
-        pressure = 1.0 + np.exp(1.0 - x * x - y * y) * (0.5 - x * x - y * y) / (32.0 * np.pi**3)
+        pressure = mhdvortex_pressure(x, y)
         return [
             get_particle_array(
                 name="fluid",

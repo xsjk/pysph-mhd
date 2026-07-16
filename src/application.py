@@ -28,6 +28,9 @@ class MHDApplication(Application):
     def create_mhd_particles(self):
         raise NotImplementedError
 
+    def refresh_initial_thermodynamics(self, particle):
+        pass
+
     @property
     def bounds(self) -> tuple[float, float, float, float, float, float]:
         raise NotImplementedError
@@ -119,6 +122,9 @@ class MHDApplication(Application):
         solver.integrator.initial_acceleration(solver.t, solver.dt)
         if particle.gpu is not None:
             particle.gpu.pull("rho", "h")
+        self.refresh_initial_thermodynamics(particle)
+        if particle.gpu is not None:
+            particle.gpu.push("e")
         self._sync_initial_mhd_state(particle)
         for _ in range(2):
             solver.integrator.initial_acceleration(solver.t, solver.dt)
