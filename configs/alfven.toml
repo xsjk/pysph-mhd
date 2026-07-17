@@ -1,6 +1,6 @@
 [case]
 name = "alfven"
-nx = 192
+nx = 256
 
 [physics]
 gamma = 1.6666666666666667
@@ -11,7 +11,7 @@ artificial_magnetic_dissipation = 0.0
 
 [numerics]
 kernel = "wendland_c6"
-hfact = 1.48
+hfact = 1.9
 density = "iterate"
 periodic_mode = "minimum_image"
 cleaning_speed_factor = 0.0
