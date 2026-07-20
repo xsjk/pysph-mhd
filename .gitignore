@@ -1,5 +1,8 @@
 uv.lock
 __pycache__/
 outputs/
+docs/
+tests/
 *.toml
+!configs/*.toml
 *.yml

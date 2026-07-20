@@ -17,16 +17,33 @@ class MHDApplication(Application):
     hfact: float
     tf: float
     pfreq: int
+    timestep_factor: float
     nx: int
     periodic_mode: str
 
+    def __init__(self, config):
+        self.config = config
+        super().__init__(fname=config.case.name)
+
     @override
     def initialize(self):
-        self.density = "iterate"
-        self.periodic_mode = "ghost"
+        self.gamma = self.config.physics.gamma
+        self.mu0 = self.config.physics.mu0
+        self.kernel = self.config.numerics.kernel
+        self.hfact = self.config.numerics.hfact
+        self.density = self.config.numerics.density
+        self.periodic_mode = self.config.numerics.periodic_mode
+        self.tf = self.config.solver.tf
+        self.pfreq = self.config.solver.pfreq
+        self.adaptive_timestep = self.config.solver.adaptive_timestep
+        self.timestep_factor = self.config.solver.timestep_factor
+        self.nx = self.config.case.nx
 
     def create_mhd_particles(self):
         raise NotImplementedError
+
+    def refresh_initial_thermodynamics(self, particle):
+        pass
 
     @property
     def bounds(self) -> tuple[float, float, float, float, float, float]:
@@ -58,42 +75,14 @@ class MHDApplication(Application):
 
     @override
     def create_scheme(self):
-        assert all(hasattr(self, name) for name in ("gamma", "kernel", "hfact", "tf", "pfreq"))
-        return MHDScheme(
-            gamma=self.gamma,
-            kernel=self.kernel,
-            density=self.density,
-            hfact=self.hfact,
-        )
-
-    @override
-    def add_user_options(self, group):
-        group.add_argument(
-            "--density",
-            choices=("iterate", "single"),
-            default=self.density,
-        )
-        group.add_argument("--nx", type=int, default=self.nx)
-        group.add_argument(
-            "--periodic-mode",
-            choices=("ghost", "minimum_image"),
-            default=self.periodic_mode,
-        )
-
-    @override
-    def consume_user_options(self):
-        self.density = self.options.density
-        self.nx = self.options.nx
-        self.periodic_mode = self.options.periodic_mode
-        assert self.nx > 0
+        return MHDScheme(self.config)
 
     @override
     def configure_scheme(self):
-        self.scheme.configure(density=self.density)
         self.scheme.configure_solver(
             dt=1.0,
             tf=self.tf,
-            adaptive_timestep=True,
+            adaptive_timestep=self.adaptive_timestep,
             pfreq=self.pfreq,
         )
 
@@ -116,14 +105,26 @@ class MHDApplication(Application):
 
     def _warm_initial_derivatives(self, solver):
         particle = self.particles[0]
+        initial_magnetic_field = (particle.Bx.copy(), particle.By.copy(), particle.Bz.copy())
+        particle.h0[:] = particle.h
+        self._sync_initial_mhd_state(particle)
+        if particle.gpu is not None:
+            particle.gpu.push("h0")
         solver.integrator.initial_acceleration(solver.t, solver.dt)
         if particle.gpu is not None:
-            particle.gpu.pull("rho", "h")
+            particle.gpu.pull("rho", "h", "converged")
+        assert np.all(particle.converged == 1)
+        particle.Bx[:], particle.By[:], particle.Bz[:] = initial_magnetic_field
+        self.refresh_initial_thermodynamics(particle)
+        particle.h0[:] = particle.h
+        if particle.gpu is not None:
+            particle.gpu.push("e", "h0")
         self._sync_initial_mhd_state(particle)
         for _ in range(2):
             solver.integrator.initial_acceleration(solver.t, solver.dt)
         if particle.gpu is not None:
-            particle.gpu.pull("rho", "h", "Bx", "By", "Bz")
+            particle.gpu.pull("rho", "h", "Bx", "By", "Bz", "converged")
+        assert np.all(particle.converged == 1)
         solver.initial_acceleration_is_current = True
 
     def _compute_initial_dt(self, solver):
@@ -132,11 +133,11 @@ class MHDApplication(Application):
             particle.gpu.pull("h", "dt_cfl", "au", "av", "aw")
         force_norm = np.sqrt(particle.au * particle.au + particle.av * particle.av + particle.aw * particle.aw)
         assert np.all(particle.dt_cfl > 0.0)
-        dt_courant = COURANT_FACTOR * particle.h / particle.dt_cfl
+        dt_courant = self.timestep_factor * COURANT_FACTOR * particle.h / particle.dt_cfl
         dt_candidates = [float(np.min(dt_courant))]
         force_mask = force_norm > 0.0
         if np.any(force_mask):
-            dt_force = FORCE_FACTOR * np.sqrt(particle.h[force_mask] / force_norm[force_mask])
+            dt_force = self.timestep_factor * FORCE_FACTOR * np.sqrt(particle.h[force_mask] / force_norm[force_mask])
             dt_candidates.append(float(np.min(dt_force)))
         solver.dt = min(dt_candidates)
         assert solver.dt > 0.0

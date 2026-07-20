@@ -7,22 +7,22 @@ from ..application import MHDApplication
 from .lattice import close_packed_lattice
 
 
-class MHDVortex(MHDApplication):
-    @override
-    def initialize(self):
-        super().initialize()
-        self.gamma = 5.0 / 3.0
-        self.kernel = "cubic"
-        self.hfact = 1.2
-        self.tf = 10.0
-        self.pfreq = 20
-        self.nx = 64
+def mhdvortex_pressure(x, y):
+    s = 1.0 - x * x - y * y
+    return 1.0 + np.exp(s) * (s - 1.0) / (8.0 * np.pi**2)
 
+
+class MHDVortex(MHDApplication):
     @property
     @override
     def bounds(self):
         zmax = 4.0 * np.sqrt(6.0) / self.nx
         return -5.0, 5.0, -5.0, 5.0, -zmax, zmax
+
+    @override
+    def refresh_initial_thermodynamics(self, particle):
+        pressure = mhdvortex_pressure(particle.x, particle.y)
+        particle.e[:] = pressure / ((self.gamma - 1.0) * particle.rho)
 
     @override
     def create_mhd_particles(self):
@@ -32,7 +32,7 @@ class MHDVortex(MHDApplication):
         rho = 1.0
         mass = rho * (xmax - xmin) * (ymax - ymin) * (zmax - zmin) / count
         factor = np.exp(0.5 * (1.0 - x * x - y * y)) / (2.0 * np.pi)
-        pressure = 1.0 + np.exp(1.0 - x * x - y * y) * (0.5 - x * x - y * y) / (32.0 * np.pi**3)
+        pressure = mhdvortex_pressure(x, y)
         return [
             get_particle_array(
                 name="fluid",
@@ -52,7 +52,3 @@ class MHDVortex(MHDApplication):
                 alpha1=np.zeros(count),
             ),
         ]
-
-
-if __name__ == "__main__":
-    MHDVortex().run()

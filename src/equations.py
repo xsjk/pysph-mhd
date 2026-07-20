@@ -3,7 +3,6 @@ from typing import override
 
 from pysph.sph.equation import Equation
 
-MU0 = 1.0
 DENSITY_TOLERANCE = 1.0e-4
 COURANT_FACTOR = 0.3
 FORCE_FACTOR = 0.25
@@ -142,12 +141,12 @@ class SmoothingLengthRateFromForceDivergence(Equation):
 
 
 class MagneticStressAccelerations(Equation):
-    def __init__(self, dest, sources):
-        self.mu0 = MU0
+    def __init__(self, dest, sources, mu0):
+        self.mu0 = mu0
         super().__init__(dest, sources)
 
     @override
-    def loop(self, d_idx, s_idx, d_m, s_m, d_rho, s_rho, d_Bxpred, d_Bypred, d_Bzpred, s_Bxpred, s_Bypred, s_Bzpred, d_omega, s_omega, d_au, d_av, d_aw, XIJ, DWI, DWJ, RIJ):
+    def loop(self, d_idx, s_idx, s_m, d_rho, s_rho, d_Bxpred, d_Bypred, d_Bzpred, s_Bxpred, s_Bypred, s_Bzpred, d_omega, s_omega, d_au, d_av, d_aw, XIJ, DWI, DWJ, RIJ):
         if RIJ > PAIR_DISTANCE_EPSILON:
             runix = XIJ[0] / RIJ
             runiy = XIJ[1] / RIJ
@@ -171,12 +170,12 @@ class MagneticStressAccelerations(Equation):
         bro2_j = (brhox_j * brhox_j + brhoy_j * brhoy_j + brhoz_j * brhoz_j) / self.mu0
         gradp = s_m[s_idx] * (0.5 * bro2_i * grad_i + 0.5 * bro2_j * grad_j)
 
-        sxx_i = -d_m[d_idx] * brhox_i * brhox_i / self.mu0
-        sxy_i = -d_m[d_idx] * brhox_i * brhoy_i / self.mu0
-        sxz_i = -d_m[d_idx] * brhox_i * brhoz_i / self.mu0
-        syy_i = -d_m[d_idx] * brhoy_i * brhoy_i / self.mu0
-        syz_i = -d_m[d_idx] * brhoy_i * brhoz_i / self.mu0
-        szz_i = -d_m[d_idx] * brhoz_i * brhoz_i / self.mu0
+        sxx_i = -s_m[s_idx] * brhox_i * brhox_i / self.mu0
+        sxy_i = -s_m[s_idx] * brhox_i * brhoy_i / self.mu0
+        sxz_i = -s_m[s_idx] * brhox_i * brhoz_i / self.mu0
+        syy_i = -s_m[s_idx] * brhoy_i * brhoy_i / self.mu0
+        syz_i = -s_m[s_idx] * brhoy_i * brhoz_i / self.mu0
+        szz_i = -s_m[s_idx] * brhoz_i * brhoz_i / self.mu0
         sxx_j = -s_m[s_idx] * brhox_j * brhox_j / self.mu0
         sxy_j = -s_m[s_idx] * brhox_j * brhoy_j / self.mu0
         sxz_j = -s_m[s_idx] * brhox_j * brhoz_j / self.mu0
@@ -197,9 +196,11 @@ class MagneticStressAccelerations(Equation):
 
 
 class MHDAccelerations(Equation):
-    def __init__(self, dest, sources):
+    def __init__(self, dest, sources, mu0, artificial_viscosity, artificial_thermal_conductivity):
         self.beta = 2.0
-        self.mu0 = MU0
+        self.mu0 = mu0
+        self.artificial_viscosity = artificial_viscosity
+        self.artificial_thermal_conductivity = artificial_thermal_conductivity
         super().__init__(dest, sources)
 
     @override
@@ -213,7 +214,7 @@ class MHDAccelerations(Equation):
         d_div_for_psi[d_idx] = 0.0
 
     @override
-    def loop(self, d_idx, s_idx, d_m, s_m, d_p, s_p, d_cs, s_cs, d_epred, s_epred, d_rho, s_rho, d_Bxpred, d_Bypred, d_Bzpred, s_Bxpred, s_Bypred, s_Bzpred, d_upred, d_vpred, d_wpred, s_upred, s_vpred, s_wpred, d_au, d_av, d_aw, d_ae, d_omega, s_omega, XIJ, DWI, DWJ, d_alpha1, s_alpha1, RIJ, RHOIJ, d_dt_cfl, d_div):
+    def loop(self, d_idx, s_idx, s_m, d_p, s_p, d_cs, s_cs, d_epred, s_epred, d_rho, s_rho, d_Bxpred, d_Bypred, d_Bzpred, s_Bxpred, s_Bypred, s_Bzpred, d_upred, d_vpred, d_wpred, s_upred, s_vpred, s_wpred, d_au, d_av, d_aw, d_ae, d_omega, s_omega, XIJ, DWI, DWJ, d_alpha1, s_alpha1, RIJ, RHOIJ, d_dt_cfl, d_div):
         p_i = d_p[d_idx]
         pj = s_p[s_idx]
         rhoi = d_rho[d_idx]
@@ -245,7 +246,7 @@ class MHDAccelerations(Equation):
         omegaj = s_omega[s_idx]
         grad_i = omegai * (runix * DWI[0] + runiy * DWI[1] + runiz * DWI[2])
         grad_j = omegaj * (runix * DWJ[0] + runiy * DWJ[1] + runiz * DWJ[2])
-        d_div[d_idx] += d_m[d_idx] * dot * grad_i
+        d_div[d_idx] += s_m[s_idx] * dot * grad_i
         pdiff = abs(p_i - pj)
         vsig2 = sqrt(pdiff / RHOIJ)
         dt_cfl = vwave_i - self.beta * dot
@@ -256,8 +257,8 @@ class MHDAccelerations(Equation):
         if dot < 0.0:
             vsigav_i = max(d_alpha1[d_idx] * vwave_i - self.beta * dot, 0.0)
             vsigav_j = max(s_alpha1[s_idx] * vwave_j - self.beta * dot, 0.0)
-            qrho2_i = -0.5 / rhoi * vsigav_i * dot
-            qrho2_j = -0.5 / rhoj * vsigav_j * dot
+            qrho2_i = -0.5 / rhoi * vsigav_i * dot * self.artificial_viscosity
+            qrho2_j = -0.5 / rhoj * vsigav_j * dot * self.artificial_viscosity
             d_au[d_idx] += -mj * (qrho2_i * omegai * DWI[0] + qrho2_j * omegaj * DWJ[0])
             d_av[d_idx] += -mj * (qrho2_i * omegai * DWI[1] + qrho2_j * omegaj * DWJ[1])
             d_aw[d_idx] += -mj * (qrho2_i * omegai * DWI[2] + qrho2_j * omegaj * DWJ[2])
@@ -271,7 +272,7 @@ class MHDAccelerations(Equation):
         d_ae[d_idx] += mj * pibrhoi2 * omegai * vijdotdwi
 
         eij = d_epred[d_idx] - s_epred[s_idx]
-        d_ae[d_idx] += vsig2 * eij * (0.5 * d_m[d_idx] / rhoi * grad_i + 0.5 * mj / rhoj * grad_j)
+        d_ae[d_idx] += self.artificial_thermal_conductivity * vsig2 * eij * (0.5 * s_m[s_idx] / rhoi * grad_i + 0.5 * mj / rhoj * grad_j)
 
     @override
     def post_loop(self, d_idx, d_rho, d_div, d_div_for_psi):
@@ -485,9 +486,13 @@ class MagneticStateReconstruction(Equation):
 
 
 class MagneticStateRates(Equation):
-    def __init__(self, dest, sources):
+    def __init__(self, dest, sources, mu0, artificial_magnetic_dissipation, cleaning_speed_factor, cleaning_damping_factor):
         super().__init__(dest, sources)
-        self.mu0 = MU0
+        self.mu0 = mu0
+        self.artificial_magnetic_dissipation = artificial_magnetic_dissipation
+        self.cleaning_speed_factor = cleaning_speed_factor
+        self.cleaning_damping_factor = cleaning_damping_factor
+        self.cleaning_active = float(cleaning_speed_factor > 0.0)
 
     @override
     def initialize(self, d_idx, d_aBevolx, d_aBevoly, d_aBevolz, d_apsi, d_divBsymm, d_divBdiff):
@@ -499,7 +504,7 @@ class MagneticStateRates(Equation):
         d_divBdiff[d_idx] = 0.0
 
     @override
-    def loop(self, d_idx, s_idx, d_m, s_m, d_rho, s_rho, d_upred, d_vpred, d_wpred, s_upred, s_vpred, s_wpred, d_Bxpred, d_Bypred, d_Bzpred, s_Bxpred, s_Bypred, s_Bzpred, d_psipred, s_psipred, d_cs, s_cs, d_omega, s_omega, d_aBevolx, d_aBevoly, d_aBevolz, d_ae, d_divBsymm, d_divBdiff, XIJ, DWI, DWJ, RIJ):
+    def loop(self, d_idx, s_idx, s_m, d_rho, s_rho, d_upred, d_vpred, d_wpred, s_upred, s_vpred, s_wpred, d_Bxpred, d_Bypred, d_Bzpred, s_Bxpred, s_Bypred, s_Bzpred, d_psipred, s_psipred, d_cs, s_cs, d_omega, s_omega, d_aBevolx, d_aBevoly, d_aBevolz, d_ae, d_divBsymm, d_divBdiff, XIJ, DWI, DWJ, RIJ):
         if RIJ > PAIR_DISTANCE_EPSILON:
             runix = XIJ[0] / RIJ
             runiy = XIJ[1] / RIJ
@@ -539,10 +544,12 @@ class MagneticStateRates(Equation):
         dvyt = dvy - projv * runiy
         dvzt = dvz - projv * runiz
         vsig_b = sqrt(dvxt * dvxt + dvyt * dvyt + dvzt * dvzt)
-        d_b_diss_term = 0.5 * (d_m[d_idx] * rho_i2_inv * grad_i + s_m[s_idx] * rho_j2_inv * grad_j) * vsig_b
+        d_b_diss_term = 0.5 * (s_m[s_idx] * rho_i2_inv * grad_i + s_m[s_idx] * rho_j2_inv * grad_j) * vsig_b * self.artificial_magnetic_dissipation
         vwave_i = sqrt(d_cs[d_idx] * d_cs[d_idx] + (bx_i * bx_i + by_i * by_i + bz_i * bz_i) / (self.mu0 * rho_i))
         vwave_j = sqrt(s_cs[s_idx] * s_cs[s_idx] + (bx_j * bx_j + by_j * by_j + bz_j * bz_j) / (self.mu0 * rho_j))
-        dpsi_term = pmj_rho21_grad_i * d_psipred[d_idx] * vwave_i + pmj_rho21_grad_j * s_psipred[s_idx] * vwave_j
+        ch_i = self.cleaning_speed_factor * vwave_i
+        ch_j = self.cleaning_speed_factor * vwave_j
+        dpsi_term = pmj_rho21_grad_i * d_psipred[d_idx] * ch_i + pmj_rho21_grad_j * s_psipred[s_idx] * ch_j
 
         d_aBevolx[d_idx] += d_brho_term * dvx + d_b_diss_term * dbx - dpsi_term * runix
         d_aBevoly[d_idx] += d_brho_term * dvy + d_b_diss_term * dby - dpsi_term * runiy
@@ -554,14 +561,16 @@ class MagneticStateRates(Equation):
     @override
     def post_loop(self, d_idx, d_rho, d_h, d_psipred, d_cs, d_div, d_div_for_psi, d_Bxpred, d_Bypred, d_Bzpred, d_apsi, d_divBdiff, d_dt_cfl):
         vwave = sqrt(d_cs[d_idx] * d_cs[d_idx] + (d_Bxpred[d_idx] * d_Bxpred[d_idx] + d_Bypred[d_idx] * d_Bypred[d_idx] + d_Bzpred[d_idx] * d_Bzpred[d_idx]) / (self.mu0 * d_rho[d_idx]))
-        d_apsi[d_idx] = -vwave * d_divBdiff[d_idx] / d_rho[d_idx] - d_psipred[d_idx] * vwave / d_h[d_idx] - 0.5 * d_psipred[d_idx] * d_div_for_psi[d_idx]
+        ch = self.cleaning_speed_factor * vwave
+        d_apsi[d_idx] = -ch * d_divBdiff[d_idx] / d_rho[d_idx] - self.cleaning_damping_factor * d_psipred[d_idx] * ch / d_h[d_idx] - 0.5 * self.cleaning_active * d_psipred[d_idx] * d_div_for_psi[d_idx]
         d_dt_cfl[d_idx] = max(d_dt_cfl[d_idx], vwave)
+        d_dt_cfl[d_idx] = max(d_dt_cfl[d_idx], ch)
 
 
 class AdaptiveTimestep(Equation):
-    def __init__(self, dest, sources):
-        self.c_cour = COURANT_FACTOR
-        self.c_force = FORCE_FACTOR
+    def __init__(self, dest, sources, timestep_factor):
+        self.c_cour = timestep_factor * COURANT_FACTOR
+        self.c_force = timestep_factor * FORCE_FACTOR
         self.bignumber = 1.0e29
         super().__init__(dest, sources)
 
@@ -577,8 +586,8 @@ class AdaptiveTimestep(Equation):
 
 
 class EnergyLimiter(Equation):
-    def __init__(self, dest, sources):
-        self.c_cour = COURANT_FACTOR
+    def __init__(self, dest, sources, timestep_factor):
+        self.c_cour = timestep_factor * COURANT_FACTOR
         super().__init__(dest, sources)
 
     @override
@@ -590,8 +599,8 @@ class EnergyLimiter(Equation):
 
 
 class DivBCorrection(Equation):
-    def __init__(self, dest, sources):
-        self.mu0 = MU0
+    def __init__(self, dest, sources, mu0):
+        self.mu0 = mu0
         super().__init__(dest, sources)
 
     @override

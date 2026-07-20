@@ -8,16 +8,6 @@ from .lattice import close_packed_lattice
 
 
 class MHDWave(MHDApplication):
-    @override
-    def initialize(self):
-        super().initialize()
-        self.gamma = 5.0 / 3.0
-        self.kernel = "cubic"
-        self.hfact = 1.2
-        self.tf = 0.6
-        self.pfreq = 20
-        self.nx = 64
-
     @property
     @override
     def bounds(self):
@@ -51,7 +41,3 @@ class MHDWave(MHDApplication):
                 alpha1=np.zeros(count),
             ),
         ]
-
-
-if __name__ == "__main__":
-    MHDWave().run()
