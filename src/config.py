@@ -1,18 +1,8 @@
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
-
-CASE_NAMES = (
-    "alfven",
-    "jadvect",
-    "mhdblast",
-    "mhdrotor",
-    "mhdshock",
-    "mhdsine",
-    "mhdvortex",
-    "mhdwave",
-    "orstang",
-)
+from types import NoneType
+from typing import get_args, get_type_hints
 
 
 @dataclass(frozen=True)
@@ -35,7 +25,7 @@ class NumericsConfig:
     kernel: str
     hfact: float
     density: str
-    periodic_mode: str
+    periodic_mode: str | None
     cleaning_speed_factor: float
     cleaning_damping_factor: float
 
@@ -63,40 +53,33 @@ class SimulationConfig:
     solver: SolverConfig
     execution: ExecutionConfig
 
+    def validate(self):
+        _validate_config(self)
 
-def _assert_fields(values, fields):
-    assert tuple(sorted(values)) == tuple(sorted(fields))
 
-
-def load_config(path):
+def load_config(path, config_types):
     with Path(path).open("rb") as stream:
         values = tomllib.load(stream)
 
-    _assert_fields(values, ("case", "physics", "numerics", "solver", "execution"))
-    case = values["case"]
-    physics = values["physics"]
-    numerics = values["numerics"]
-    solver = values["solver"]
-    execution = values["execution"]
-    _assert_fields(case, ("name", "nx"))
-    _assert_fields(physics, ("gamma", "mu0", "artificial_viscosity", "artificial_thermal_conductivity", "artificial_magnetic_dissipation"))
-    _assert_fields(numerics, ("kernel", "hfact", "density", "periodic_mode", "cleaning_speed_factor", "cleaning_damping_factor"))
-    _assert_fields(solver, ("tf", "pfreq", "adaptive_timestep", "timestep_factor"))
-    _assert_fields(execution, ("backend", "fused", "directory"))
-
-    config = SimulationConfig(
-        case=CaseConfig(name=case["name"], nx=case["nx"]),
-        physics=PhysicsConfig(gamma=physics["gamma"], mu0=physics["mu0"], artificial_viscosity=physics["artificial_viscosity"], artificial_thermal_conductivity=physics["artificial_thermal_conductivity"], artificial_magnetic_dissipation=physics["artificial_magnetic_dissipation"]),
-        numerics=NumericsConfig(kernel=numerics["kernel"], hfact=numerics["hfact"], density=numerics["density"], periodic_mode=numerics["periodic_mode"], cleaning_speed_factor=numerics["cleaning_speed_factor"], cleaning_damping_factor=numerics["cleaning_damping_factor"]),
-        solver=SolverConfig(tf=solver["tf"], pfreq=solver["pfreq"], adaptive_timestep=solver["adaptive_timestep"], timestep_factor=solver["timestep_factor"]),
-        execution=ExecutionConfig(backend=execution["backend"], fused=execution["fused"], directory=execution["directory"]),
-    )
-    _validate_config(config)
+    config = _load_dataclass(config_types[values["case"]["name"]], values)
+    config.validate()
     return config
 
 
+def _load_dataclass(config_type, values):
+    type_hints = get_type_hints(config_type)
+    config_fields = {field.name: type_hints[field.name] for field in fields(config_type)}
+    optional_fields = {name for name, field_type in config_fields.items() if NoneType in get_args(field_type)}
+    assert set(values) <= set(config_fields)
+    assert set(config_fields) - optional_fields <= set(values)
+    arguments = {name: _load_dataclass(field_type, values[name]) if is_dataclass(field_type) else values[name] for name, field_type in config_fields.items() if name in values}
+    arguments.update({name: None for name in optional_fields if name not in values})
+    return config_type(**arguments)
+
+
 def _validate_config(config):
-    assert config.case.name in CASE_NAMES
+    assert type(config.case.name) is str
+    assert config.case.name
     assert type(config.case.nx) is int
     assert config.case.nx > 0
     assert type(config.physics.gamma) is float
@@ -113,7 +96,7 @@ def _validate_config(config):
     assert type(config.numerics.hfact) is float
     assert config.numerics.hfact > 0.0
     assert config.numerics.density in {"iterate", "single"}
-    assert config.numerics.periodic_mode in {"ghost", "minimum_image"}
+    assert config.numerics.periodic_mode in {None, "ghost", "minimum_image"}
     assert type(config.numerics.cleaning_speed_factor) is float
     assert config.numerics.cleaning_speed_factor >= 0.0
     assert type(config.numerics.cleaning_damping_factor) is float

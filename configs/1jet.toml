@@ -1,0 +1,40 @@
+[case]
+name = "1jet"
+nx = 30
+
+[jet]
+inner_radius = 0.810         # m, axial position of the inner jet face
+outer_radius = 0.900         # m, axial position of the outer jet face
+radius = 0.040               # m, jet column radius
+end_taper_fraction = 0.1     # dimensionless fraction of jet length
+axial_speed = 7.0e4          # m/s, full jet reaches the origin by 12.86 us
+azimuthal_speed = 2.0e3      # m/s, peak rotation speed
+temperature_ev = 2.0         # eV
+number_density = 2.0e22      # m^-3, argon ion number density
+axial_field = 0.08           # T, axial magnetic-field scale
+toroidal_field = 0.18        # T, peak toroidal magnetic field
+
+[physics]
+gamma = 1.6666666666666667
+mu0 = 1.25663706212e-6
+artificial_viscosity = 1.0
+artificial_thermal_conductivity = 1.0
+artificial_magnetic_dissipation = 1.0
+
+[numerics]
+kernel = "cubic"
+hfact = 1.2
+density = "iterate"
+cleaning_speed_factor = 1.0
+cleaning_damping_factor = 1.0
+
+[solver]
+tf = 2.0e-5                  # s
+pfreq = 25
+adaptive_timestep = true
+timestep_factor = 1.0
+
+[execution]
+backend = "cuda"
+fused = true
+directory = "outputs/1jet_configured_nx30_v70kms"

@@ -4,12 +4,14 @@ import numpy as np
 from pysph.base.nnps import DomainManager
 from pysph.solver.application import Application
 
+from .config import SimulationConfig
 from .equations import COURANT_FACTOR, FORCE_FACTOR
 from .particles import INITIAL_PREDICTOR_PAIRS, INITIAL_STATE_GPU_PROPERTIES
 from .scheme import MHDScheme
 
 
 class MHDApplication(Application):
+    config_type = SimulationConfig
     scheme: MHDScheme
     gamma: float
     kernel: str
@@ -19,7 +21,7 @@ class MHDApplication(Application):
     pfreq: int
     timestep_factor: float
     nx: int
-    periodic_mode: str
+    periodic_mode: str | None
 
     def __init__(self, config):
         self.config = config
@@ -59,6 +61,8 @@ class MHDApplication(Application):
 
     @override
     def create_domain(self):
+        if self.periodic_mode is None:
+            return DomainManager()
         xmin, xmax, ymin, ymax, zmin, zmax = self.bounds
         return DomainManager(
             xmin=xmin,

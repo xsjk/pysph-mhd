@@ -54,6 +54,7 @@ OUTPUT_PROPERTIES = (
     "x",
     "y",
     "z",
+    "gid",
     "u",
     "v",
     "w",

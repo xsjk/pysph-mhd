@@ -9,6 +9,9 @@ pip install 'pysph[cuda13x] @ git+https://github.com/xsjk/pysph.git'
 ## Cases
 
 ```bash
+python -m src.run configs/1jet.toml
+python -m src.run configs/3jet.toml
+python -m src.run configs/12jet.toml
 python -m src.run configs/alfven.toml
 python -m src.run configs/jadvect.toml
 python -m src.run configs/mhdblast.toml
