@@ -3,7 +3,7 @@ from pathlib import Path
 
 from .cases.alfven import AlfvenWave
 from .cases.jadvect import CurrentLoopAdvection
-from .cases.jet import JMXJets
+from .cases.jet import JET_ANGLES, JMXJets, JMXJetsTarget
 from .cases.mhdblast import MHDBlast
 from .cases.mhdrotor import MHDRotor
 from .cases.mhdshock import MHDShock
@@ -17,6 +17,7 @@ CASES = {
     "1jet": JMXJets,
     "3jet": JMXJets,
     "12jet": JMXJets,
+    **{f"{name}_target": JMXJetsTarget for name in JET_ANGLES},
     "alfven": AlfvenWave,
     "jadvect": CurrentLoopAdvection,
     "mhdblast": MHDBlast,

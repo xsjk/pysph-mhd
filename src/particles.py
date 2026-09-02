@@ -5,6 +5,8 @@ BASE_PROPERTIES = (
     "gid",
     "tag",
     {"name": "itype", "type": "int", "default": 1},
+    {"name": "material_id", "type": "int", "default": 0},
+    "molar_mass",
     "u",
     "v",
     "w",

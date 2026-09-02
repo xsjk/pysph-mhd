@@ -11,14 +11,25 @@ from .lattice import close_packed_lattice
 
 ARGON_MASS_NUMBER = 39.948
 ARGON_MOLAR_MASS = 0.039948
+DEUTERIUM_MASS_NUMBER = 2.0141
+DEUTERIUM_MOLAR_MASS = 0.0020141
 ATOMIC_MASS = 1.6726231e-27
 EV_TO_K = 11604.505
+GAS_CONSTANT = 8.31
+SPHEROMAK_FUNDAMENTAL_ROOT = 4.493409457909064
+
+ARGON_MATERIAL_ID = 0
+DEUTERIUM_MATERIAL_ID = 1
 
 JET_ANGLES = {
     "1jet": (0.0,),
     "3jet": (0.0, 30.0, -30.0),
     "12jet": tuple(30.0 * index for index in range(12)),
 }
+
+
+def jet_geometry_name(case_name):
+    return case_name.removesuffix("_target")
 
 
 @dataclass(frozen=True)
@@ -42,7 +53,7 @@ class JetSimulationConfig(SimulationConfig):
     @override
     def validate(self):
         super().validate()
-        assert self.case.name in JET_ANGLES
+        assert jet_geometry_name(self.case.name) in JET_ANGLES
         assert type(self.jet.inner_radius) is float
         assert self.jet.inner_radius >= 0.0
         assert type(self.jet.outer_radius) is float
@@ -63,6 +74,110 @@ class JetSimulationConfig(SimulationConfig):
         assert self.jet.axial_field >= 0.0
         assert type(self.jet.toroidal_field) is float
         assert self.jet.toroidal_field >= 0.0
+
+
+@dataclass(frozen=True)
+class TargetConfig:
+    radius: float
+    temperature_ev: float
+    number_density: float
+    central_field: float
+    lambda_value: float
+    magnetic_handedness: float
+
+    def validate(self):
+        assert type(self.radius) is float
+        assert self.radius > 0.0
+        assert type(self.temperature_ev) is float
+        assert self.temperature_ev > 0.0
+        assert type(self.number_density) is float
+        assert self.number_density > 0.0
+        assert type(self.central_field) is float
+        assert self.central_field > 0.0
+        assert type(self.lambda_value) is float
+        assert self.lambda_value > 0.0
+        assert np.isclose(self.lambda_value * self.radius, SPHEROMAK_FUNDAMENTAL_ROOT)
+        assert type(self.magnetic_handedness) is float
+        assert np.isclose(abs(self.magnetic_handedness), 1.0)
+
+
+@dataclass(frozen=True)
+class TargetJetSimulationConfig(JetSimulationConfig):
+    target: TargetConfig
+
+    @override
+    def validate(self):
+        super().validate()
+        assert self.case.name.endswith("_target")
+        self.target.validate()
+
+
+def spherical_spheromak_field(x, y, z, target):
+    assert x.shape == y.shape == z.shape
+    radius = np.sqrt(x * x + y * y + z * z)
+    cylindrical_radius = np.sqrt(x * x + z * z)
+    inside = radius < target.radius
+    dimensionless_radius = target.lambda_value * radius
+    q2 = dimensionless_radius * dimensionless_radius
+    regular = dimensionless_radius > 1.0e-4
+
+    j0 = 1.0 - q2 / 6.0 + q2 * q2 / 120.0
+    np.divide(
+        np.sin(dimensionless_radius),
+        dimensionless_radius,
+        out=j0,
+        where=regular,
+    )
+    j1_over_q = 1.0 / 3.0 - q2 / 30.0 + q2 * q2 / 840.0
+    regular_j1 = np.zeros_like(radius)
+    np.divide(
+        np.sin(dimensionless_radius),
+        dimensionless_radius**3,
+        out=regular_j1,
+        where=regular,
+    )
+    regular_cosine = np.zeros_like(radius)
+    np.divide(
+        np.cos(dimensionless_radius),
+        dimensionless_radius**2,
+        out=regular_cosine,
+        where=regular,
+    )
+    j1_over_q[regular] = regular_j1[regular] - regular_cosine[regular]
+    j1 = dimensionless_radius * j1_over_q
+    j1_derivative = j0 - 2.0 * j1_over_q
+
+    inverse_radius = np.zeros_like(radius)
+    np.divide(1.0, radius, out=inverse_radius, where=radius > 0.0)
+    inverse_cylindrical_radius = np.zeros_like(radius)
+    np.divide(
+        1.0,
+        cylindrical_radius,
+        out=inverse_cylindrical_radius,
+        where=cylindrical_radius > 0.0,
+    )
+    cosine_theta = y * inverse_radius
+    sine_theta = cylindrical_radius * inverse_radius
+    cosine_phi = x * inverse_cylindrical_radius
+    sine_phi = -z * inverse_cylindrical_radius
+
+    coefficient = 1.5 * target.central_field
+    radial_field = 2.0 * coefficient * j1_over_q * cosine_theta
+    polar_field = -coefficient * (j1_over_q + j1_derivative) * sine_theta
+    azimuthal_field = target.magnetic_handedness * coefficient * j1 * sine_theta
+
+    bx = radial_field * x * inverse_radius + polar_field * cosine_theta * cosine_phi - azimuthal_field * sine_phi
+    by = radial_field * cosine_theta - polar_field * sine_theta
+    bz = radial_field * z * inverse_radius - polar_field * cosine_theta * sine_phi - azimuthal_field * cosine_phi
+    origin = radius <= np.finfo(radius.dtype).eps
+    bx[origin] = 0.0
+    by[origin] = target.central_field
+    bz[origin] = 0.0
+    return (
+        np.where(inside, bx, 0.0),
+        np.where(inside, by, 0.0),
+        np.where(inside, bz, 0.0),
+    )
 
 
 class JMXJets(MHDApplication):
@@ -148,7 +263,7 @@ class JMXJets(MHDApplication):
         positions = []
         velocities = []
         magnetic_fields = []
-        for angle_degrees in JET_ANGLES[self.config.case.name]:
+        for angle_degrees in JET_ANGLES[jet_geometry_name(self.config.case.name)]:
             angle = angle_degrees * pi / 180.0
             cos_angle = cos(angle)
             sin_angle = sin(angle)
@@ -167,7 +282,7 @@ class JMXJets(MHDApplication):
         count = len(x)
         rho = jet.number_density * ARGON_MASS_NUMBER * ATOMIC_MASS
         temperature = jet.temperature_ev * EV_TO_K
-        pressure = rho * temperature * 8.31 / ARGON_MOLAR_MASS
+        pressure = rho * temperature * GAS_CONSTANT / ARGON_MOLAR_MASS
         energy = pressure / ((self.gamma - 1.0) * rho)
         particle_volume = pi * jet.radius**2 * (jet.outer_radius - jet.inner_radius) / count_per_jet
         mass = rho * particle_volume
@@ -191,3 +306,94 @@ class JMXJets(MHDApplication):
                 alpha1=np.zeros(count),
             ),
         ]
+
+
+class JMXJetsTarget(JMXJets):
+    config_type = TargetJetSimulationConfig
+
+    def _create_target(self):
+        target = self.config.target
+        bounds = (
+            -target.radius,
+            target.radius,
+            -target.radius,
+            target.radius,
+            -target.radius,
+            target.radius,
+        )
+        x, y, z = close_packed_lattice(bounds, self.dx)
+        inside = x * x + y * y + z * z < target.radius**2
+        x, y, z = x[inside], y[inside], z[inside]
+        count = len(x)
+        rho = target.number_density * DEUTERIUM_MASS_NUMBER * ATOMIC_MASS
+        temperature = target.temperature_ev * EV_TO_K
+        pressure = rho * temperature * GAS_CONSTANT / DEUTERIUM_MOLAR_MASS
+        energy = pressure / ((self.gamma - 1.0) * rho)
+        particle_volume = 4.0 * pi * target.radius**3 / (3.0 * count)
+        bx, by, bz = spherical_spheromak_field(x, y, z, target)
+        return get_particle_array(
+            name="fluid",
+            x=x,
+            y=y,
+            z=z,
+            u=np.zeros(count),
+            v=np.zeros(count),
+            w=np.zeros(count),
+            rho=np.full(count, rho),
+            h=np.full(count, self.hfact * particle_volume ** (1.0 / 3.0)),
+            m=np.full(count, rho * particle_volume),
+            e=np.full(count, energy),
+            Bx=bx,
+            By=by,
+            Bz=bz,
+            alpha1=np.zeros(count),
+        )
+
+    @override
+    def create_mhd_particles(self):
+        jet = super().create_mhd_particles()[0]
+        target = self._create_target()
+        properties = ("x", "y", "z", "u", "v", "w", "rho", "h", "m", "e", "Bx", "By", "Bz", "alpha1")
+        merged = {name: np.concatenate((getattr(jet, name), getattr(target, name))) for name in properties}
+        jet_count = len(jet.x)
+        target_count = len(target.x)
+        particle = get_particle_array(
+            name="fluid",
+            gid=np.arange(jet_count + target_count, dtype=np.uint32),
+            **merged,
+        )
+        particle.add_property(
+            "material_id",
+            type="int",
+            data=np.concatenate(
+                (
+                    np.full(jet_count, ARGON_MATERIAL_ID, dtype=np.int32),
+                    np.full(target_count, DEUTERIUM_MATERIAL_ID, dtype=np.int32),
+                )
+            ),
+        )
+        particle.add_property(
+            "molar_mass",
+            data=np.concatenate(
+                (
+                    np.full(jet_count, ARGON_MOLAR_MASS),
+                    np.full(target_count, DEUTERIUM_MOLAR_MASS),
+                )
+            ),
+        )
+        return [particle]
+
+    @override
+    def create_particles(self):
+        particles = super().create_particles()
+        particle = particles[0]
+        particle.set_output_arrays(
+            [
+                *particle.output_property_arrays,
+                "material_id",
+                "molar_mass",
+                "divBsymm",
+                "divBdiff",
+            ]
+        )
+        return particles
