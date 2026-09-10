@@ -3,8 +3,7 @@ name = "1jet"
 nx = 30
 
 [jet]
-inner_radius = 0.810         # m, axial position of the inner jet face
-outer_radius = 0.900         # m, axial position of the outer jet face
+length = 0.090               # m
 radius = 0.040               # m, jet column radius
 end_taper_fraction = 0.1     # dimensionless fraction of jet length
 axial_speed = 7.0e4          # m/s, full jet reaches the origin by 12.86 us
@@ -38,3 +37,7 @@ timestep_factor = 1.0
 backend = "cuda"
 fused = true
 directory = "outputs/1jet_configured_nx30_v70kms"
+
+[[jets]]
+position = [0.81000000000000005, 0.0, 0.0]
+direction = [-1.0, 0.0, 0.0]

@@ -3,8 +3,7 @@ name = "12jet"
 nx = 30
 
 [jet]
-inner_radius = 0.810         # m, axial position of the inner jet face
-outer_radius = 0.900         # m, axial position of the outer jet face
+length = 0.090               # m
 radius = 0.040               # m, jet column radius
 end_taper_fraction = 0.1     # dimensionless fraction of jet length
 axial_speed = 7.0e4          # m/s, full jet reaches the origin by 12.86 us
@@ -38,3 +37,51 @@ timestep_factor = 1.0
 backend = "cuda"
 fused = true
 directory = "outputs/12jet_configured_nx30_v70kms"
+
+[[jets]]
+position = [0.81000000000000005, 0.0, 0.0]
+direction = [-1.0, 0.0, 0.0]
+
+[[jets]]
+position = [0.70148057706539535, 0.0, 0.40499999999999997]
+direction = [-0.86602540378443871, 0.0, -0.49999999999999994]
+
+[[jets]]
+position = [0.40500000000000014, 0.0, 0.70148057706539535]
+direction = [-0.50000000000000011, 0.0, -0.8660254037844386]
+
+[[jets]]
+position = [0.0, 0.0, 0.81000000000000005]
+direction = [0.0, 0.0, -1.0]
+
+[[jets]]
+position = [-0.40499999999999986, 0.0, 0.70148057706539535]
+direction = [0.49999999999999978, 0.0, -0.86602540378443871]
+
+[[jets]]
+position = [-0.70148057706539535, 0.0, 0.40499999999999997]
+direction = [0.86602540378443871, 0.0, -0.49999999999999994]
+
+[[jets]]
+position = [-0.81000000000000005, 0.0, 0.0]
+direction = [1.0, 0.0, 0.0]
+
+[[jets]]
+position = [-0.70148057706539535, 0.0, -0.40500000000000014]
+direction = [0.8660254037844386, 0.0, 0.50000000000000011]
+
+[[jets]]
+position = [-0.40500000000000036, 0.0, -0.70148057706539513]
+direction = [0.50000000000000044, 0.0, 0.86602540378443837]
+
+[[jets]]
+position = [0.0, 0.0, -0.81000000000000005]
+direction = [0.0, 0.0, 1.0]
+
+[[jets]]
+position = [0.40500000000000014, 0.0, -0.70148057706539535]
+direction = [-0.50000000000000011, 0.0, 0.8660254037844386]
+
+[[jets]]
+position = [0.70148057706539513, 0.0, -0.40500000000000036]
+direction = [-0.86602540378443837, 0.0, 0.50000000000000044]

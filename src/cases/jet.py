@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from math import cos, pi, sin
+from math import isfinite, pi
 from typing import override
 
 import numpy as np
@@ -21,21 +21,10 @@ SPHEROMAK_FUNDAMENTAL_ROOT = 4.493409457909064
 ARGON_MATERIAL_ID = 0
 DEUTERIUM_MATERIAL_ID = 1
 
-JET_ANGLES = {
-    "1jet": (0.0,),
-    "3jet": (0.0, 30.0, -30.0),
-    "12jet": tuple(30.0 * index for index in range(12)),
-}
-
-
-def jet_geometry_name(case_name):
-    return case_name.removesuffix("_target")
-
 
 @dataclass(frozen=True)
 class JetConfig:
-    inner_radius: float
-    outer_radius: float
+    length: float
     radius: float
     end_taper_fraction: float
     axial_speed: float
@@ -47,17 +36,29 @@ class JetConfig:
 
 
 @dataclass(frozen=True)
+class JetPlacementConfig:
+    position: list[float]
+    direction: list[float]
+
+    def validate(self):
+        assert type(self.position) is list
+        assert len(self.position) == 3
+        assert type(self.direction) is list
+        assert len(self.direction) == 3
+        assert all(type(value) is float and isfinite(value) for value in (*self.position, *self.direction))
+        assert np.isclose(np.linalg.norm(self.direction), 1.0)
+
+
+@dataclass(frozen=True)
 class JetSimulationConfig(SimulationConfig):
     jet: JetConfig
+    jets: list[JetPlacementConfig]
 
     @override
     def validate(self):
         super().validate()
-        assert jet_geometry_name(self.case.name) in JET_ANGLES
-        assert type(self.jet.inner_radius) is float
-        assert self.jet.inner_radius >= 0.0
-        assert type(self.jet.outer_radius) is float
-        assert self.jet.outer_radius > self.jet.inner_radius
+        assert type(self.jet.length) is float
+        assert self.jet.length > 0.0
         assert type(self.jet.radius) is float
         assert self.jet.radius > 0.0
         assert type(self.jet.end_taper_fraction) is float
@@ -74,6 +75,10 @@ class JetSimulationConfig(SimulationConfig):
         assert self.jet.axial_field >= 0.0
         assert type(self.jet.toroidal_field) is float
         assert self.jet.toroidal_field >= 0.0
+        assert type(self.jets) is list
+        assert self.jets
+        for jet in self.jets:
+            jet.validate()
 
 
 @dataclass(frozen=True)
@@ -108,7 +113,6 @@ class TargetJetSimulationConfig(JetSimulationConfig):
     @override
     def validate(self):
         super().validate()
-        assert self.case.name.endswith("_target")
         self.target.validate()
 
 
@@ -195,8 +199,8 @@ class JMXJets(MHDApplication):
     def _single_jet(self):
         jet = self.config.jet
         local_bounds = (
-            jet.inner_radius,
-            jet.outer_radius,
+            0.0,
+            jet.length,
             -jet.radius,
             jet.radius,
             -jet.radius,
@@ -212,9 +216,9 @@ class JMXJets(MHDApplication):
         inverse_radius = np.divide(1.0, radius, out=np.zeros_like(radius), where=radius > 0.0)
         radial_ratio = radius / jet.radius
         radial_remaining = 1.0 - radial_ratio * radial_ratio
-        jet_length = jet.outer_radius - jet.inner_radius
+        jet_length = jet.length
         taper_length = jet.end_taper_fraction * jet_length
-        axial_local = 0.5 * (jet.inner_radius + jet.outer_radius) - axial
+        axial_local = 0.5 * jet_length - axial
         axial_plus = (axial_local + 0.5 * jet_length) / taper_length
         axial_minus = (axial_local - 0.5 * jet_length) / taper_length
         axial_envelope = 0.5 * (np.tanh(axial_plus) - np.tanh(axial_minus))
@@ -229,7 +233,7 @@ class JMXJets(MHDApplication):
         cross_y_field = (radial_field * cross_y + toroidal_field * cross_z) * inverse_radius
         cross_z_field = (radial_field * cross_z - toroidal_field * cross_y) * inverse_radius
         return (
-            -axial_field * cos_angle - cross_z_field * sin_angle,
+            axial_field * cos_angle - cross_z_field * sin_angle,
             cross_y_field,
             -axial_field * sin_angle + cross_z_field * cos_angle,
         )
@@ -240,9 +244,9 @@ class JMXJets(MHDApplication):
         inverse_radius = np.divide(1.0, radius, out=np.zeros_like(radius), where=radius > 0.0)
         radial_ratio = radius / jet.radius
         radial_remaining = 1.0 - radial_ratio * radial_ratio
-        jet_length = jet.outer_radius - jet.inner_radius
+        jet_length = jet.length
         taper_length = jet.end_taper_fraction * jet_length
-        axial_local = 0.5 * (jet.inner_radius + jet.outer_radius) - axial
+        axial_local = 0.5 * jet_length - axial
         axial_plus = (axial_local + 0.5 * jet_length) / taper_length
         axial_minus = (axial_local - 0.5 * jet_length) / taper_length
         axial_envelope = 0.5 * (np.tanh(axial_plus) - np.tanh(axial_minus))
@@ -251,10 +255,26 @@ class JMXJets(MHDApplication):
         cross_y_velocity = azimuthal_velocity * cross_z * inverse_radius
         cross_z_velocity = -azimuthal_velocity * cross_y * inverse_radius
         return (
-            -jet.axial_speed * cos_angle - cross_z_velocity * sin_angle,
+            jet.axial_speed * cos_angle - cross_z_velocity * sin_angle,
             cross_y_velocity,
             -jet.axial_speed * sin_angle + cross_z_velocity * cos_angle,
         )
+
+    @staticmethod
+    def _orientation_basis(direction):
+        axis = np.asarray(direction)
+        reference = np.asarray((0.0, 1.0, 0.0))
+        if abs(axis[1]) > 0.9:
+            reference = np.asarray((0.0, 0.0, 1.0))
+        cross_y_axis = reference - np.dot(reference, axis) * axis
+        cross_y_axis /= np.linalg.norm(cross_y_axis)
+        cross_z_axis = np.cross(cross_y_axis, axis)
+        return axis, cross_y_axis, cross_z_axis
+
+    @staticmethod
+    def _orient_local_vector(local_vector, basis):
+        axis, cross_y_axis, cross_z_axis = basis
+        return tuple(axis[component] * local_vector[0] + cross_y_axis[component] * local_vector[1] + cross_z_axis[component] * local_vector[2] for component in range(3))
 
     @override
     def create_mhd_particles(self):
@@ -263,17 +283,15 @@ class JMXJets(MHDApplication):
         positions = []
         velocities = []
         magnetic_fields = []
-        for angle_degrees in JET_ANGLES[jet_geometry_name(self.config.case.name)]:
-            angle = angle_degrees * pi / 180.0
-            cos_angle = cos(angle)
-            sin_angle = sin(angle)
-            positions.append((
-                axial * cos_angle - cross_z * sin_angle,
-                cross_y,
-                axial * sin_angle + cross_z * cos_angle,
-            ))
-            velocities.append(self._velocity_field(axial, cross_y, cross_z, cos_angle, sin_angle, jet))
-            magnetic_fields.append(self._magnetic_field(axial, cross_y, cross_z, cos_angle, sin_angle, jet))
+        local_position = (-axial, cross_y, cross_z)
+        local_velocity = self._velocity_field(axial, cross_y, cross_z, 1.0, 0.0, jet)
+        local_magnetic_field = self._magnetic_field(axial, cross_y, cross_z, 1.0, 0.0, jet)
+        for placement in self.config.jets:
+            basis = self._orientation_basis(placement.direction)
+            oriented_position = self._orient_local_vector(local_position, basis)
+            positions.append(tuple(oriented_position[index] + placement.position[index] for index in range(3)))
+            velocities.append(self._orient_local_vector(local_velocity, basis))
+            magnetic_fields.append(self._orient_local_vector(local_magnetic_field, basis))
 
         x = np.concatenate([position[0] for position in positions])
         y = np.concatenate([position[1] for position in positions])
@@ -284,7 +302,7 @@ class JMXJets(MHDApplication):
         temperature = jet.temperature_ev * EV_TO_K
         pressure = rho * temperature * GAS_CONSTANT / ARGON_MOLAR_MASS
         energy = pressure / ((self.gamma - 1.0) * rho)
-        particle_volume = pi * jet.radius**2 * (jet.outer_radius - jet.inner_radius) / count_per_jet
+        particle_volume = pi * jet.radius**2 * jet.length / count_per_jet
         mass = rho * particle_volume
         return [
             get_particle_array(

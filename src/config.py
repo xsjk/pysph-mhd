@@ -2,7 +2,7 @@ import tomllib
 from dataclasses import dataclass, fields, is_dataclass
 from pathlib import Path
 from types import NoneType
-from typing import get_args, get_type_hints
+from typing import get_args, get_origin, get_type_hints
 
 
 @dataclass(frozen=True)
@@ -58,10 +58,17 @@ class SimulationConfig:
 
 
 def load_config(path, config_types):
-    with Path(path).open("rb") as stream:
-        values = tomllib.load(stream)
+    values = read_config(path)
+    return parse_config(values, config_types[values["case"]["name"]])
 
-    config = _load_dataclass(config_types[values["case"]["name"]], values)
+
+def read_config(path):
+    with Path(path).open("rb") as stream:
+        return tomllib.load(stream)
+
+
+def parse_config(values, config_type):
+    config = _load_dataclass(config_type, values)
     config.validate()
     return config
 
@@ -72,9 +79,17 @@ def _load_dataclass(config_type, values):
     optional_fields = {name for name, field_type in config_fields.items() if NoneType in get_args(field_type)}
     assert set(values) <= set(config_fields)
     assert set(config_fields) - optional_fields <= set(values)
-    arguments = {name: _load_dataclass(field_type, values[name]) if is_dataclass(field_type) else values[name] for name, field_type in config_fields.items() if name in values}
+    arguments = {name: _load_value(field_type, values[name]) for name, field_type in config_fields.items() if name in values}
     arguments.update({name: None for name in optional_fields if name not in values})
     return config_type(**arguments)
+
+
+def _load_value(field_type, value):
+    if is_dataclass(field_type):
+        return _load_dataclass(field_type, value)
+    if get_origin(field_type) is list and is_dataclass(get_args(field_type)[0]):
+        return [_load_dataclass(get_args(field_type)[0], item) for item in value]
+    return value
 
 
 def _validate_config(config):

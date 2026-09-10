@@ -3,7 +3,7 @@ from pathlib import Path
 
 from .cases.alfven import AlfvenWave
 from .cases.jadvect import CurrentLoopAdvection
-from .cases.jet import JET_ANGLES, JMXJets, JMXJetsTarget
+from .cases.jet import JMXJets, JMXJetsTarget
 from .cases.mhdblast import MHDBlast
 from .cases.mhdrotor import MHDRotor
 from .cases.mhdshock import MHDShock
@@ -11,13 +11,9 @@ from .cases.mhdsine import MHDSine
 from .cases.mhdvortex import MHDVortex
 from .cases.mhdwave import MHDWave
 from .cases.orstang import OrszagTang
-from .config import load_config, pysph_arguments
+from .config import parse_config, pysph_arguments, read_config
 
 CASES = {
-    "1jet": JMXJets,
-    "3jet": JMXJets,
-    "12jet": JMXJets,
-    **{f"{name}_target": JMXJetsTarget for name in JET_ANGLES},
     "alfven": AlfvenWave,
     "jadvect": CurrentLoopAdvection,
     "mhdblast": MHDBlast,
@@ -34,9 +30,14 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=Path)
     arguments = parser.parse_args()
-    config_types = {name: application_type.config_type for name, application_type in CASES.items()}
-    config = load_config(arguments.config, config_types)
-    application = CASES[config.case.name](config)
+    values = read_config(arguments.config)
+    if "jet" in values:
+        application_type = JMXJetsTarget if "target" in values else JMXJets
+        config = parse_config(values, application_type.config_type)
+    else:
+        application_type = CASES[values["case"]["name"]]
+        config = parse_config(values, application_type.config_type)
+    application = application_type(config)
     application.run(pysph_arguments(config.execution))
 
 
