@@ -1,0 +1,95 @@
+[case]
+name = "12jet_target"
+nx = 20
+
+[jet]
+length = 0.100
+radius = 0.040
+end_taper_fraction = 0.1
+axial_speed = 7.0e4
+azimuthal_speed = 2.0e3
+temperature_ev = 2.0
+number_density = 2.0e22
+axial_field = 0.08
+toroidal_field = 0.18
+
+[target]
+radius = 0.100
+temperature_ev = 2.0
+number_density = 2.0e22
+central_field = 0.1
+lambda_value = 44.93409457909064
+magnetic_handedness = 1.0
+
+[physics]
+gamma = 1.6666666666666667
+mu0 = 1.25663706212e-6
+artificial_viscosity = 1.0
+artificial_thermal_conductivity = 1.0
+artificial_magnetic_dissipation = 1.0
+
+[numerics]
+kernel = "wendland_c6"
+hfact = 1.7
+density = "iterate"
+cleaning_speed_factor = 1.0
+cleaning_damping_factor = 1.0
+
+[solver]
+tf = 1.5e-5
+pfreq = 50
+adaptive_timestep = true
+timestep_factor = 0.5
+
+[execution]
+backend = "cuda"
+fused = true
+directory = "outputs/target_high/12jet_target"
+
+[[jets]]
+position = [0.5, 0.0, 0.0]
+direction = [-1.0, 0.0, 0.0]
+
+[[jets]]
+position = [0.43301270189221935, 0.0, 0.24999999999999997]
+direction = [-0.8660254037844387, 0.0, -0.49999999999999994]
+
+[[jets]]
+position = [0.25000000000000006, 0.0, 0.4330127018922193]
+direction = [-0.5000000000000001, 0.0, -0.8660254037844386]
+
+[[jets]]
+position = [0.0, 0.0, 0.5]
+direction = [0.0, 0.0, -1.0]
+
+[[jets]]
+position = [-0.2499999999999999, 0.0, 0.43301270189221935]
+direction = [0.4999999999999998, 0.0, -0.8660254037844387]
+
+[[jets]]
+position = [-0.43301270189221935, 0.0, 0.24999999999999997]
+direction = [0.8660254037844387, 0.0, -0.49999999999999994]
+
+[[jets]]
+position = [-0.5, 0.0, 0.0]
+direction = [1.0, 0.0, 0.0]
+
+[[jets]]
+position = [-0.4330127018922193, 0.0, -0.25000000000000006]
+direction = [0.8660254037844386, 0.0, 0.5000000000000001]
+
+[[jets]]
+position = [-0.2500000000000002, 0.0, -0.4330127018922192]
+direction = [0.5000000000000004, 0.0, 0.8660254037844384]
+
+[[jets]]
+position = [0.0, 0.0, -0.5]
+direction = [0.0, 0.0, 1.0]
+
+[[jets]]
+position = [0.25000000000000006, 0.0, -0.4330127018922193]
+direction = [-0.5000000000000001, 0.0, 0.8660254037844386]
+
+[[jets]]
+position = [0.4330127018922192, 0.0, -0.2500000000000002]
+direction = [-0.8660254037844384, 0.0, 0.5000000000000004]
