@@ -1,5 +1,5 @@
 [case]
-name = "3jet"
+name = "1jet"
 nx = 30
 
 [jet]
@@ -36,16 +36,12 @@ timestep_factor = 1.0
 [execution]
 backend = "cuda"
 fused = true
-directory = "outputs/3jet_configured_nx30_v70kms"
+directory = "outputs/1jet_configured_nx30_v70kms"
 
-[[jets]]
-position = [0.7014805770653953, 0.0, -0.40499999999999997]
-direction = [-0.8660254037844387, 0.0, 0.49999999999999994]
 
-[[jets]]
-position = [0.81, 0.0, 0.0]
-direction = [-1.0, 0.0, 0.0]
-
-[[jets]]
-position = [0.7014805770653953, 0.0, 0.40499999999999997]
-direction = [-0.8660254037844387, 0.0, -0.49999999999999994]
+[jet_generator]
+kind = "planar"
+count = 1
+inner_radius = 0.810
+azimuth_start_degrees = 0.0
+azimuth_step_degrees = 0.0

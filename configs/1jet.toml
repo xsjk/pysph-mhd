@@ -39,5 +39,5 @@ fused = true
 directory = "outputs/1jet_configured_nx30_v70kms"
 
 [[jets]]
-position = [0.81000000000000005, 0.0, 0.0]
+position = [0.81, 0.0, 0.0]
 direction = [-1.0, 0.0, 0.0]
