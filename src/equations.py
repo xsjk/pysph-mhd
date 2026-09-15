@@ -1,6 +1,7 @@
 from math import sqrt
 from typing import override
 
+from compyle.low_level import atomic_min
 from pysph.sph.equation import Equation
 
 DENSITY_TOLERANCE = 1.0e-4
@@ -18,8 +19,12 @@ class DensityIteration(Equation):
         self.dim = dim
         self.k = k
         self.htol = DENSITY_TOLERANCE
-        self.equation_has_converged = 1
+        self.density_converged = 1
         super().__init__(dest, sources)
+
+    @override
+    def py_initialize(self, dst, t, dt):
+        self.density_converged = 1
 
     @override
     def initialize(self, d_idx, d_rho, d_div, d_grhox, d_grhoy, d_grhoz, d_arho, d_dwdh):
@@ -32,7 +37,6 @@ class DensityIteration(Equation):
         d_arho[d_idx] = 0.0
 
         d_dwdh[d_idx] = 0.0
-        self.equation_has_converged = 1
 
     @override
     def loop(self, d_idx, s_idx, d_rho, d_grhox, d_grhoy, d_grhoz, d_arho, d_dwdh, s_m, d_converged, d_upred, d_vpred, d_wpred, s_upred, s_vpred, s_wpred, WI, DWI, GHI):
@@ -76,7 +80,7 @@ class DensityIteration(Equation):
             finalize_density = ((diff < self.htol) and (omegai > 0.0) and (hi > 0.0)) or self.iterate_only_once
 
             if not finalize_density:
-                self.equation_has_converged = -1
+                atomic_min(self.density_converged, -1)
                 d_h[d_idx] = hnew
                 d_converged[d_idx] = 0
             else:
@@ -89,9 +93,8 @@ class DensityIteration(Equation):
 
     @override
     def converged(self):
-        if hasattr(self, "_pull"):
-            self._pull("equation_has_converged")
-        return self.equation_has_converged
+        self._pull("density_converged")
+        return self.density_converged
 
 
 class IdealGasEOS(Equation):
