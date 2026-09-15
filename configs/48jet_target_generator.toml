@@ -48,6 +48,6 @@ directory = "outputs/48jet_target"
 
 
 [jet_generator]
-kind = "antipodal_fibonacci"
+type = "antipodal_fibonacci"
 count = 48
 inner_radius = 0.500

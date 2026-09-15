@@ -1,5 +1,5 @@
 [case]
-name = "1jet"
+name = "44jet"
 nx = 30
 
 [jet]
@@ -36,12 +36,12 @@ timestep_factor = 1.0
 [execution]
 backend = "cuda"
 fused = true
-directory = "outputs/1jet_configured_nx30_v70kms"
+directory = "outputs/44jet_configured_nx30_v70kms"
 
 
 [jet_generator]
-type = "planar"
-count = 1
+type = "latitude_rings"
 inner_radius = 0.810
+latitudes_degrees = [60.0, 30.0, 0.0, -30.0, -60.0]
+counts = [6, 10, 12, 10, 6]
 azimuth_start_degrees = 0.0
-azimuth_step_degrees = 0.0

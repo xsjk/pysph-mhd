@@ -48,7 +48,7 @@ directory = "outputs/12jet_target"
 
 
 [jet_generator]
-kind = "planar"
+type = "planar"
 count = 12
 inner_radius = 0.500
 azimuth_start_degrees = 0.0

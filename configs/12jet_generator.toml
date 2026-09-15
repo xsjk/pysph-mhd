@@ -40,7 +40,7 @@ directory = "outputs/12jet_configured_nx30_v70kms"
 
 
 [jet_generator]
-kind = "planar"
+type = "planar"
 count = 12
 inner_radius = 0.810
 azimuth_start_degrees = 0.0
