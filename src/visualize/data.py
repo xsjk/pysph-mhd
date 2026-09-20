@@ -65,7 +65,7 @@ def read_frame(path):
         assert all(field in arrays for field in FIELDS)
         data = {field: arrays[field][...] for field in FIELDS}
         count = len(data["gid"])
-        data["molar_mass"] = arrays["molar_mass"][...] if "molar_mass" in arrays else np.full(count, ARGON_MOLAR_MASS)
+        data["molar_mass"] = arrays["molar_mass"][...] if "molar_mass" in arrays and arrays["molar_mass"].size > 0 else np.full(count, ARGON_MOLAR_MASS)
         time = float(handle["solver_data"].attrs["t"])
     assert all(len(values) == count for values in data.values())
     gids = data["gid"]
@@ -89,7 +89,7 @@ class GpuFrames:
         distance = np.sqrt(first["x"] ** 2 + first["y"] ** 2 + first["z"] ** 2)
         with h5py.File(paths[0]) as handle:
             arrays = handle["particles/fluid/arrays"]
-            self.reference_radius = float(np.max(distance[arrays["material_id"][...] == 0])) if "material_id" in arrays else float(np.min(distance))
+            self.reference_radius = float(np.max(distance[arrays["material_id"][...] == 0])) if "material_id" in arrays and arrays["material_id"].size > 0 else float(np.min(distance))
         self.view_radius = 1.08 * float(np.max(distance))
         grid_width = math.isqrt(ARROW_COUNT)
         assert grid_width * grid_width == ARROW_COUNT
