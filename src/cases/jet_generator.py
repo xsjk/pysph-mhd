@@ -2,7 +2,7 @@
 
 import argparse
 import tomllib
-from math import cos, pi, sin, sqrt
+from math import cos, pi, sin
 from pathlib import Path
 
 
@@ -10,21 +10,6 @@ def planar(config):
     assert config["count"] > 0
     angles = (config["azimuth_start_degrees"] + index * config["azimuth_step_degrees"] for index in range(config["count"]))
     return tuple((cos(angle * pi / 180.0), 0.0, sin(angle * pi / 180.0)) for angle in angles)
-
-
-def antipodal_fibonacci(config):
-    assert config["count"] > 0
-    assert config["count"] % 2 == 0
-    pair_count = config["count"] // 2
-    golden_angle = pi * (3.0 - sqrt(5.0))
-    directions = []
-    for index in range(pair_count):
-        y = (index + 0.5) / pair_count
-        radius = sqrt(1.0 - y * y)
-        azimuth = index * golden_angle
-        direction = (radius * cos(azimuth), y, radius * sin(azimuth))
-        directions.extend((direction, tuple(-value for value in direction)))
-    return directions
 
 
 def latitude_rings(config):
@@ -60,7 +45,6 @@ assert generator["inner_radius"] >= 0.0
 
 directions = {
     "planar": planar,
-    "antipodal_fibonacci": antipodal_fibonacci,
     "latitude_rings": latitude_rings,
 }[generator["type"]](generator)
 radius = generator["inner_radius"]
