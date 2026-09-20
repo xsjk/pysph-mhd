@@ -10,8 +10,6 @@ axial_speed = 7.0e4
 azimuthal_speed = 2.0e3
 temperature_ev = 2.0
 number_density = 2.0e22
-axial_field = 0.08
-toroidal_field = 0.18
 
 [target]
 radius = 0.100
@@ -48,7 +46,7 @@ directory = "outputs/target_high/12jet_target"
 
 
 [jet_generator]
-kind = "planar"
+type = "planar"
 count = 12
 inner_radius = 0.500
 azimuth_start_degrees = 0.0

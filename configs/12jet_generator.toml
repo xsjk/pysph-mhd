@@ -10,8 +10,6 @@ axial_speed = 7.0e4          # m/s, full jet reaches the origin by 12.86 us
 azimuthal_speed = 2.0e3      # m/s, peak rotation speed
 temperature_ev = 2.0         # eV
 number_density = 2.0e22      # m^-3, argon ion number density
-axial_field = 0.08           # T, axial magnetic-field scale
-toroidal_field = 0.18        # T, peak toroidal magnetic field
 
 [physics]
 gamma = 1.6666666666666667

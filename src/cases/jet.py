@@ -31,8 +31,6 @@ class JetConfig:
     azimuthal_speed: float
     temperature_ev: float
     number_density: float
-    axial_field: float
-    toroidal_field: float
 
 
 @dataclass(frozen=True)
@@ -71,10 +69,6 @@ class JetSimulationConfig(SimulationConfig):
         assert self.jet.temperature_ev > 0.0
         assert type(self.jet.number_density) is float
         assert self.jet.number_density > 0.0
-        assert type(self.jet.axial_field) is float
-        assert self.jet.axial_field >= 0.0
-        assert type(self.jet.toroidal_field) is float
-        assert self.jet.toroidal_field >= 0.0
         assert type(self.jets) is list
         assert self.jets
         for jet in self.jets:
@@ -211,34 +205,6 @@ class JMXJets(MHDApplication):
         return axial[inside], cross_y[inside], cross_z[inside]
 
     @staticmethod
-    def _magnetic_field(axial, cross_y, cross_z, cos_angle, sin_angle, jet):
-        radius = np.sqrt(cross_y * cross_y + cross_z * cross_z)
-        inverse_radius = np.divide(1.0, radius, out=np.zeros_like(radius), where=radius > 0.0)
-        radial_ratio = radius / jet.radius
-        radial_remaining = 1.0 - radial_ratio * radial_ratio
-        jet_length = jet.length
-        taper_length = jet.end_taper_fraction * jet_length
-        axial_local = 0.5 * jet_length - axial
-        axial_plus = (axial_local + 0.5 * jet_length) / taper_length
-        axial_minus = (axial_local - 0.5 * jet_length) / taper_length
-        axial_envelope = 0.5 * (np.tanh(axial_plus) - np.tanh(axial_minus))
-        axial_derivative = 0.5 * (1.0 / np.cosh(axial_plus) ** 2 - 1.0 / np.cosh(axial_minus) ** 2) / taper_length
-        axial_profile = radial_remaining**3 * (1.0 - 5.0 * radial_ratio**2)
-        axial_field = jet.axial_field * axial_profile * axial_envelope
-        radial_field = -0.5 * jet.axial_field * radius * radial_remaining**4 * axial_derivative
-        toroidal_peak_shape = 216.0 / (343.0 * np.sqrt(7.0))
-        toroidal_field = jet.toroidal_field * radial_ratio * radial_remaining**3 / toroidal_peak_shape * axial_envelope
-
-        # Rotate the same divergence-free local helical field with each jet axis.
-        cross_y_field = (radial_field * cross_y + toroidal_field * cross_z) * inverse_radius
-        cross_z_field = (radial_field * cross_z - toroidal_field * cross_y) * inverse_radius
-        return (
-            axial_field * cos_angle - cross_z_field * sin_angle,
-            cross_y_field,
-            -axial_field * sin_angle + cross_z_field * cos_angle,
-        )
-
-    @staticmethod
     def _velocity_field(axial, cross_y, cross_z, cos_angle, sin_angle, jet):
         radius = np.sqrt(cross_y * cross_y + cross_z * cross_z)
         inverse_radius = np.divide(1.0, radius, out=np.zeros_like(radius), where=radius > 0.0)
@@ -282,16 +248,13 @@ class JMXJets(MHDApplication):
         jet = self.config.jet
         positions = []
         velocities = []
-        magnetic_fields = []
         local_position = (-axial, cross_y, cross_z)
         local_velocity = self._velocity_field(axial, cross_y, cross_z, 1.0, 0.0, jet)
-        local_magnetic_field = self._magnetic_field(axial, cross_y, cross_z, 1.0, 0.0, jet)
         for placement in self.config.jets:
             basis = self._orientation_basis(placement.direction)
             oriented_position = self._orient_local_vector(local_position, basis)
             positions.append(tuple(oriented_position[index] + placement.position[index] for index in range(3)))
             velocities.append(self._orient_local_vector(local_velocity, basis))
-            magnetic_fields.append(self._orient_local_vector(local_magnetic_field, basis))
 
         x = np.concatenate([position[0] for position in positions])
         y = np.concatenate([position[1] for position in positions])
@@ -318,9 +281,9 @@ class JMXJets(MHDApplication):
                 m=np.full(count, mass),
                 e=np.full(count, energy),
                 gid=np.arange(count, dtype=np.uint32),
-                Bx=np.concatenate([field[0] for field in magnetic_fields]),
-                By=np.concatenate([field[1] for field in magnetic_fields]),
-                Bz=np.concatenate([field[2] for field in magnetic_fields]),
+                Bx=np.zeros(count),
+                By=np.zeros(count),
+                Bz=np.zeros(count),
                 alpha1=np.zeros(count),
             ),
         ]

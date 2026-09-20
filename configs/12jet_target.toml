@@ -10,8 +10,6 @@ axial_speed = 7.0e4
 azimuthal_speed = 2.0e3
 temperature_ev = 2.0
 number_density = 2.0e22
-axial_field = 0.08
-toroidal_field = 0.18
 
 [target]
 radius = 0.100
