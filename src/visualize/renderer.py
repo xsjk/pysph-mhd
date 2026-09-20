@@ -170,6 +170,7 @@ void main(){output_colour=arrow_colour;}
 """
 
 FONT_DATA = {
+    "=": "00000/00000/11111/00000/11111/00000/00000",
     " ": "00000/00000/00000/00000/00000/00000/00000",
     "-": "00000/00000/00000/11111/00000/00000/00000",
     ".": "00000/00000/00000/00000/00000/01100/01100",
@@ -454,6 +455,9 @@ class Renderer:
             (self.frames.magnetic_range, 1880, 400),
         )
         for limits, x, y in ranges:
+            if limits is None:
+                vertices.extend(text_vertices("B = 0 T", 1500, 520, 4, colour))
+                continue
             vertices.extend(text_vertices(f"{limits[1]:.1E}", x - 100, y + 180, 2, colour))
             vertices.extend(text_vertices(f"{limits[0]:.1E}", x - 100, y - 15, 2, colour))
             for index in range(48):
@@ -519,13 +523,18 @@ class Renderer:
             surface=True,
         )
         self._render_panel(self.panels[0], amount, front_matrix, 1, radius, surface=False)
-        self._render_panel(self.panels[1], amount, front_matrix, 0, radius, surface=False)
+        if self.frames.magnetic_range is not None:
+            self._render_panel(self.panels[1], amount, front_matrix, 0, radius, surface=False)
+        else:
+            self.panels[1][1].use()
+            self.panels[1][1].clear(0.008, 0.012, 0.025, 1)
         self.final.use()
         self.final.clear(0.008, 0.012, 0.025, 1)
         self._draw_texture(self.main_panel[4], (0, 0, 2560, 2160), flip=False)
         self._draw_texture(self.panels[0][4], (2560, 1440, 1280, 720), flip=False)
         self._draw_texture(self.panels[1][4], (2560, 720, 1280, 720), flip=False)
-        self._draw_arrows(amount, radius)
+        if self.frames.magnetic_range is not None:
+            self._draw_arrows(amount, radius)
         self._draw_ui(time, radius)
         self.encoding.use()
         self.encoding.viewport = (0, 0, WIDTH, HEIGHT)

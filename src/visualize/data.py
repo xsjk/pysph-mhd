@@ -104,8 +104,8 @@ class GpuFrames:
             speed = np.sqrt(data["u"] ** 2 + data["v"] ** 2 + data["w"] ** 2)
             focus = distance <= self.view_radius if index == 0 else (data["x"] ** 2 + data["y"] ** 2 + data["z"] ** 2 <= self.view_radius**2)
             positive_magnetic = magnetic[focus & (magnetic > 0.0)]
-            assert len(positive_magnetic) > 0
-            magnetic_limits.append(np.quantile(positive_magnetic, (0.001, 0.999)))
+            if len(positive_magnetic) > 0:
+                magnetic_limits.append(np.quantile(positive_magnetic, (0.001, 0.999)))
             temperature_limits.append(np.quantile(temperature[focus], (0.001, 0.999)))
             density_limits.append(np.quantile(rho[focus], (0.001, 0.999)))
             statistics.append(
@@ -127,7 +127,7 @@ class GpuFrames:
         self.times = np.asarray(times)
         assert np.all(np.diff(self.times) > 0)
         self.detail_radii = np.asarray(detail_radii)
-        self.magnetic_range = self._range(magnetic_limits)
+        self.magnetic_range = self._range(magnetic_limits) if magnetic_limits else None
         self.temperature_range = self._range(temperature_limits)
         self.density_range = self._range(density_limits)
         self.statistics = np.asarray(statistics, dtype="f4")
