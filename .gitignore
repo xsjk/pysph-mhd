@@ -4,6 +4,8 @@ outputs/
 docs/
 tests/
 *.toml
-!configs/*.toml
+!configs/*
 visualization/
 *.yml
+reports/
+archive/

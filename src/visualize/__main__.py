@@ -15,6 +15,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True, dest="input_dir")
     parser.add_argument("--output", type=Path, required=True, dest="output_dir")
+    parser.add_argument("--detail-radius", type=float, required=True, help="Fixed y half-range of the central XY top-view panels in meters; x half-range is 16/9 times this value.")
     return parser.parse_args()
 
 
@@ -24,7 +25,7 @@ def main():
     name = case_name(paths)
     context = moderngl.create_standalone_context(require=430, backend="egl")
     assert "NVIDIA" in context.info["GL_RENDERER"].upper()
-    frames = GpuFrames(context, paths)
+    frames = GpuFrames(context, paths, arguments.detail_radius)
     renderer = Renderer(context, frames, name)
     encoder = CudaNvencEncoder(context, WIDTH, HEIGHT, FPS)
     times = animation_times(frames.times, FRAME_COUNT, FPS // 2)

@@ -40,12 +40,10 @@ vec3 turbo(float x) {
 }
 void main() {
     vec3 physical=mix(p0.xyz,p1.xyz,mix_value);
-    vec3 display=vec3(physical.x,physical.z,physical.y);
-    gl_Position=mvp*vec4(display,1);
+    gl_Position=mvp*vec4(physical,1);
     smoothing_length=mix(p0.w,p1.w,mix_value);
     particle_volume=mix(q0.x,q1.x,mix_value);
-    visibility=step(length(physical),view_radius);
-    visibility*=slice_mode==0 ? 1.0 : step(abs(physical.y),2.0*smoothing_length);
+    visibility=slice_mode==0 ? step(length(physical),view_radius) : step(abs(physical.z),2.0*smoothing_length);
     float depth=slice_mode==0 ? 1.0/max(gl_Position.w,.01) : 1.0;
     gl_PointSize=clamp(4.0*smoothing_length*point_scale*depth,1.0,64.0);
     float magnetic=mix(log(max(s0.x,1e-30)),log(max(s1.x,1e-30)),mix_value);
@@ -147,7 +145,7 @@ void main(){
     vec3 p=mix(p0.xyz,p1.xyz,mix_value); vec2 b=mix(s0.zw,s1.zw,mix_value);
     float m=mix(s0.x,s1.x,mix_value);
     float strength=clamp((log(max(m,1e-30))-magnetic_range.x)/(magnetic_range.y-magnetic_range.x),0.0,1.0);
-    arrow_position=vec2(p.x,p.z)/view_scale;
+    arrow_position=p.xy/view_scale;
     arrow_direction=step(1e-30,m)*normalize(b+vec2(1e-30))*(.012+.028*strength);
 }
 """
@@ -330,8 +328,8 @@ class Renderer:
         self.camera_direction = np.asarray(
             (
                 math.cos(elevation) * math.cos(azimuth),
-                math.sin(elevation),
                 math.cos(elevation) * math.sin(azimuth),
+                math.sin(elevation),
             )
         )
 
@@ -348,6 +346,8 @@ class Renderer:
         )
 
     def _prepare_pair(self, first, second):
+        # Draw only particle IDs present in the lower saved frame.
+        self.particle_count = int(self.frames.particle_counts[first])
         pair = first, second
         if pair not in self.pair_vaos:
             frame0, frame1 = self.frames.data[first], self.frames.data[second]
@@ -368,7 +368,7 @@ class Renderer:
             self.pair_vaos[pair] = particles, arrows
         self.particle_vao, self.arrow_vao = self.pair_vaos[pair]
 
-    def _matrices(self, lower, upper, amount):
+    def _matrices(self):
         center = np.zeros(3)
         distance = self.frames.view_radius / math.sin(math.radians(19))
         perspective_matrix = perspective(
@@ -376,8 +376,8 @@ class Renderer:
             1280 / 1080,
             distance - self.frames.view_radius,
             distance + self.frames.view_radius,
-        ) @ look_at(distance * self.camera_direction, center, (0, 1, 0))
-        radius = (1 - amount) * self.frames.detail_radii[lower] + amount * self.frames.detail_radii[upper]
+        ) @ look_at(distance * self.camera_direction, center, (0, 0, 1))
+        radius = self.frames.detail_radius
         front = orthographic(radius, 640 / 360, 0.01, 4 * radius) @ look_at((0, 0, 2 * radius), center, (0, 1, 0))
         return perspective_matrix, front, radius
 
@@ -396,7 +396,7 @@ class Renderer:
         self.program["slice_mode"].value = 0 if surface else 1
         self.program["quantity"].value = quantity
         self.program["surface_mode"].value = int(surface)
-        self.particle_vao.render(moderngl.POINTS, vertices=self.frames.particle_count)
+        self.particle_vao.render(moderngl.POINTS, vertices=self.particle_count)
         self.context.disable(moderngl.BLEND)
 
         resolved.use()
@@ -407,7 +407,7 @@ class Renderer:
         self.resolve["show_grid"].value = int(not surface)
         self.resolve["view_radius"].value = radius
         self.resolve["aspect"].value = 1280 / 1080 if surface else 640 / 360
-        self.resolve["grid_spacing"].value = self.frames.view_radius / 8
+        self.resolve["grid_spacing"].value = radius / 3
         self.resolve_vao.render(vertices=6)
 
     def _draw_texture(self, texture, viewport, flip):
@@ -442,13 +442,17 @@ class Renderer:
         vertices = []
         labels = (
             (self.name, 30, 1050, 4),
-            ("LOG DENSITY KG/M3", 35, 1010, 3),
-            ("LOG TEMPERATURE K", 1310, 1050, 3),
-            ("MAGNETIC FIELD T / DIRECTION X-Z", 1310, 700, 3),
+            ("LOG DENSITY KG/M3 / Z UP", 35, 1010, 3),
+            ("LOG TEMPERATURE K / XY TOP VIEW", 1310, 1050, 3),
+            ("MAGNETIC FIELD T / DIRECTION X-Y", 1310, 700, 3),
             ("NORMALIZED HISTORY", 1310, 330, 3),
         )
         for label, x, y, pixel in labels:
             vertices.extend(text_vertices(label, x, y, pixel, colour))
+        radius = self.frames.detail_radius
+        for bottom in (720, 360):
+            vertices.extend(text_vertices(f"FIXED X +- {radius * 640 / 360:.3F} M", 1310, bottom + 305, 2, colour))
+            vertices.extend(text_vertices(f"Y +- {radius:.3F} M", 1640, bottom + 305, 2, colour))
         ranges = (
             (self.frames.density_range, 1240, 820),
             (self.frames.temperature_range, 1880, 760),
@@ -494,11 +498,10 @@ class Renderer:
         vertices.extend(line_quad((1280, 720), (1920, 720), 2, separator))
         return vertices
 
-    def _draw_ui(self, time, radius):
+    def _draw_ui(self, time):
         colour = (0.82, 0.9, 1, 1)
         progress = (time - self.frames.times[0]) / (self.frames.times[-1] - self.frames.times[0])
         vertices = text_vertices(f"TIME {time:.3E} S", 35, 960, 3, colour)
-        vertices.extend(text_vertices(f"R {radius:.2E} M", 1640, 1015, 2, colour))
         x = 1310 + progress * 560
         vertices.extend(line_quad((x, 45), (x, 265), 2, (1, 1, 1, 1)))
         buffer, vao = self._ui_vao(vertices)
@@ -513,7 +516,7 @@ class Renderer:
         lower = max(0, upper - 1)
         amount = 0.0 if upper == lower else (time - self.frames.times[lower]) / (self.frames.times[upper] - self.frames.times[lower])
         self._prepare_pair(lower, upper)
-        perspective_matrix, front_matrix, radius = self._matrices(lower, upper, amount)
+        perspective_matrix, front_matrix, radius = self._matrices()
         self._render_panel(
             self.main_panel,
             amount,
@@ -535,7 +538,7 @@ class Renderer:
         self._draw_texture(self.panels[1][4], (2560, 720, 1280, 720), flip=False)
         if self.frames.magnetic_range is not None:
             self._draw_arrows(amount, radius)
-        self._draw_ui(time, radius)
+        self._draw_ui(time)
         self.encoding.use()
         self.encoding.viewport = (0, 0, WIDTH, HEIGHT)
         self._draw_texture(self.final_texture, (0, 0, WIDTH, HEIGHT), flip=True)

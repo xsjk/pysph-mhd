@@ -1,5 +1,6 @@
+# Coordinate system: right_handed_z_up_v1
 [case]
-name = "3jet"
+name = "1_Ar"
 nx = 30
 
 [jet]
@@ -34,16 +35,10 @@ timestep_factor = 1.0
 [execution]
 backend = "cuda"
 fused = true
-directory = "outputs/3jet_configured_nx30_v70kms"
+directory = "outputs/1_Ar"
 
-[[jets]]
-position = [0.7014805770653953, 0.0, -0.40499999999999997]
-direction = [-0.8660254037844387, 0.0, 0.49999999999999994]
-
-[[jets]]
-position = [0.81, 0.0, 0.0]
-direction = [-1.0, 0.0, 0.0]
-
-[[jets]]
-position = [0.7014805770653953, 0.0, 0.40499999999999997]
-direction = [-0.8660254037844387, 0.0, -0.49999999999999994]
+[layout]
+radius = 0.81
+latitudes_degrees = [0.0]
+counts = [1]
+azimuth_start_degrees = 0.0

@@ -1,0 +1,43 @@
+# Coordinate system: right_handed_z_up_v1
+[case]
+name = "1_H"
+nx = 20
+
+[jet]
+radius = 0.030                 # m, detached cylindrical plasma
+length = 0.125                 # m
+axial_speed = 1.5e5            # m/s, north gun, inward along -z
+temperature_ev = 1.5           # Te=Ti, fully ionized ordinary hydrogen
+number_density = 4.5e22        # m^-3, ni=ne
+peak_field = 0.3               # T, continuous maximum; co-helicity, inward axis fields
+
+[physics]
+gamma = 1.6666666666666667
+mu0 = 1.25663706212e-6
+artificial_viscosity = 1.0
+artificial_thermal_conductivity = 1.0
+artificial_magnetic_dissipation = 1.0
+
+[numerics]
+kernel = "cubic"
+hfact = 1.2
+density = "iterate"
+cleaning_speed_factor = 1.0
+cleaning_damping_factor = 1.0
+
+[solver]
+tf = 1.2e-5                    # s
+pfreq = 50
+adaptive_timestep = true
+timestep_factor = 1.0
+
+[execution]
+backend = "cuda"
+fused = true
+directory = "outputs/1_H"
+
+[layout]
+radius = 0.81
+latitudes_degrees = [90.0]
+counts = [1]
+azimuth_start_degrees = 0.0

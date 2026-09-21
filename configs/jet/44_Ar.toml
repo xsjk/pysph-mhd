@@ -1,5 +1,6 @@
+# Coordinate system: right_handed_z_up_v1
 [case]
-name = "12jet"
+name = "44_Ar"
 nx = 30
 
 [jet]
@@ -34,12 +35,10 @@ timestep_factor = 1.0
 [execution]
 backend = "cuda"
 fused = true
-directory = "outputs/12jet_configured_nx30_v70kms"
+directory = "outputs/44_Ar"
 
-
-[jet_generator]
-type = "planar"
-count = 12
-inner_radius = 0.810
+[layout]
+radius = 0.81
+latitudes_degrees = [60.0, 30.0, 0.0, -30.0, -60.0]
+counts = [6, 10, 12, 10, 6]
 azimuth_start_degrees = 0.0
-azimuth_step_degrees = 30.0
