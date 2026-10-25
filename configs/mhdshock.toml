@@ -3,6 +3,7 @@ name = "mhdshock"
 nx = 256
 
 [physics]
+plasma_eos = false
 gamma = 2.0
 mu0 = 1.0
 artificial_viscosity = 1.0

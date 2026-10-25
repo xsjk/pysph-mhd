@@ -2,7 +2,11 @@ from math import sqrt
 from typing import override
 
 from compyle.low_level import atomic_min
+from compyle.types import declare
 from pysph.sph.equation import Equation
+
+from .constants import ARGON_MASS, H_MASS, K_B
+from .tabulated_eos import EOS_HELPERS, species_state
 
 DENSITY_TOLERANCE = 1.0e-4
 COURANT_FACTOR = 0.3
@@ -107,6 +111,30 @@ class IdealGasEOS(Equation):
     def loop(self, d_idx, d_p, d_rho, d_epred, d_cs):
         d_p[d_idx] = self.gamma1 * d_rho[d_idx] * d_epred[d_idx]
         d_cs[d_idx] = sqrt(self.gamma * d_p[d_idx] / d_rho[d_idx])
+
+
+class ArgonHydrogenEOS(Equation):
+    def __init__(self, dest, sources):
+        from .plasma_eos import N_COUNT, T_COUNT  # ruff: ignore[import-outside-top-level] -- Tables can be generated before a solver is constructed.
+
+        self.n_count = N_COUNT
+        self.t_count = T_COUNT
+        super().__init__(dest, sources)
+
+    def _get_helpers_(self):  # ruff: ignore[bad-dunder-method-name] -- PySPH's helper registration hook.
+        return EOS_HELPERS
+
+    @override
+    def loop(self, d_idx, d_p, d_rho, d_epred, d_cs, d_T, d_mean_charge, d_material_id, d_eos_n, d_eos_T, d_eos_e, d_eos_z, d_eos_h_e, d_eos_h_z):
+        state = declare("matrix(4)")
+        if d_material_id[d_idx] == 0:
+            species_state(d_rho[d_idx], d_epred[d_idx], d_eos_n, d_eos_T, d_eos_e, d_eos_z, state, self.n_count, self.t_count, ARGON_MASS, K_B)
+        elif d_material_id[d_idx] == 2:
+            species_state(d_rho[d_idx], d_epred[d_idx], d_eos_n, d_eos_T, d_eos_h_e, d_eos_h_z, state, self.n_count, self.t_count, H_MASS, K_B)
+        d_T[d_idx] = state[0]
+        d_mean_charge[d_idx] = state[1]
+        d_p[d_idx] = state[2]
+        d_cs[d_idx] = state[3]
 
 
 class DensityFromSmoothingLength(Equation):

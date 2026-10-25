@@ -52,11 +52,13 @@ def species_config(config, species):
     launch = getattr(config, species)
     config_type = {"argon": ArgonConfig, "hydrogen": HydrogenConfig}[species]
     original = parse_config(read_config(launch.config), config_type)
-    assert original.physics == config.physics
+    physics = replace(original.physics, plasma_eos=config.physics.plasma_eos)
+    assert physics == config.physics
     assert original.numerics == config.numerics
     return replace(
         original,
         case=replace(original.case, nx=launch.nx),
+        physics=physics,
         jet=replace(original.jet, axial_speed=launch.axial_speed),
         solver=config.solver,
         execution=config.execution,
@@ -115,7 +117,7 @@ class ArgonHydrogenJets(JetApplication):
                 arrays = handle[f"particles/{name}/arrays"]
                 order = np.argsort(arrays["gid"][...])
                 np.testing.assert_array_equal(arrays["gid"][...][order], np.arange(len(order)))
-                species.append({name: arrays[name][...][order] for name in (*STATE_FIELDS, "source_id", "material_id", "molar_mass")})
+                species.append({name: arrays[name][...][order] for name in (*STATE_FIELDS, "source_id", "material_id")})
         argon, hydrogen = species
         for name in ("u", "v", "w"):
             np.testing.assert_array_equal(hydrogen[name], 0.0)
@@ -128,7 +130,6 @@ class ArgonHydrogenJets(JetApplication):
         particle = get_particle_array(name="fluid", gid=np.arange(count, dtype=np.uint32), **fields)
         for name in ("source_id", "material_id"):
             particle.add_property(name, type="int", data=np.concatenate((argon[name], hydrogen[name])))
-        particle.add_property("molar_mass", data=np.concatenate((argon["molar_mass"], hydrogen["molar_mass"])))
         return [particle]
 
     @override

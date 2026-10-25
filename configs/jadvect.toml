@@ -3,6 +3,7 @@ name = "jadvect"
 nx = 256
 
 [physics]
+plasma_eos = false
 gamma = 1.6666666666666667
 mu0 = 1.0
 artificial_viscosity = 0.0

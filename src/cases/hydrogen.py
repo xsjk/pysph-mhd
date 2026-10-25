@@ -6,11 +6,12 @@ from typing import override
 
 import numpy as np
 from pysph.base.utils import get_particle_array
-from scipy.constants import Avogadro, elementary_charge, proton_mass
 from scipy.optimize import minimize_scalar
 from scipy.special import j0, j1, jn_zeros
 
 from ..config import SimulationConfig
+from ..constants import EV_TO_K, H_MASS, K_B
+from ..tabulated_eos import species_state
 from .jets import JetApplication, LatitudeRingsConfig, jet_basis, latitude_rings
 from .lattice import close_packed_lattice
 
@@ -93,6 +94,30 @@ class HydrogenJets(JetApplication):
         return (-extent, extent) * 3
 
     @override
+    def create_particles(self):
+        (particle,) = super().create_particles()
+        # This also initializes the held, nonintegrated H array during Ar preflight.
+        if self.config.physics.plasma_eos:
+            from ..plasma_eos import H_E_TABLE, H_Z_TABLE, N_COUNT, N_GRID, T_COUNT, T_GRID  # ruff: ignore[import-outside-top-level] -- Only enabled plasma runs need the table.
+
+            names = ("T", "mean_charge", "p", "cs")
+            state = np.empty(4)
+            species_state(particle.rho[0], particle.e[0], N_GRID, T_GRID, H_E_TABLE, H_Z_TABLE, state, N_COUNT, T_COUNT, H_MASS, K_B)
+        else:
+            names = ("p", "cs")
+            pressure = (self.gamma - 1) * particle.rho[0] * particle.e[0]
+            state = (pressure, np.sqrt(self.gamma * pressure / particle.rho[0]))
+        for name, value in zip(names, state, strict=True):
+            getattr(particle, name)[:] = value
+        if particle.gpu is not None:
+            particle.gpu.push(*names)
+        return [particle]
+
+    @override
+    def refresh_initial_thermodynamics(self, particle):
+        particle.e[:] = self.energy_at_temperature(particle.rho / H_MASS, self.config.jet.temperature_ev * EV_TO_K, HYDROGEN_MATERIAL_ID)
+
+    @override
     def create_mhd_particles(self):
         gun = self.config.jet
         spacing = 2.0 * gun.radius / self.nx
@@ -112,8 +137,8 @@ class HydrogenJets(JetApplication):
         bx, by, bz = np.concatenate(fields, axis=1)
         u, v, w = np.concatenate(velocities, axis=1)
         count = len(x)
-        rho = gun.number_density * proton_mass
-        pressure = 2.0 * gun.number_density * elementary_charge * gun.temperature_ev
+        rho = gun.number_density * H_MASS
+        energy = float(self.energy_at_temperature(gun.number_density, gun.temperature_ev * EV_TO_K, HYDROGEN_MATERIAL_ID))
         volume = pi * gun.radius**2 * gun.length / len(axial)
         particle = get_particle_array(
             name="fluid",
@@ -124,8 +149,7 @@ class HydrogenJets(JetApplication):
             v=v,
             w=w,
             rho=np.full(count, rho),
-            p=np.full(count, pressure),
-            e=np.full(count, pressure / ((self.gamma - 1.0) * rho)),
+            e=np.full(count, energy),
             h=np.full(count, self.hfact * volume ** (1.0 / 3.0)),
             m=np.full(count, rho * volume),
             gid=np.arange(count, dtype=np.uint32),
@@ -135,6 +159,5 @@ class HydrogenJets(JetApplication):
             alpha1=np.zeros(count),
         )
         particle.add_property("material_id", type="int", data=np.full(count, HYDROGEN_MATERIAL_ID, dtype=np.int32))
-        particle.add_property("molar_mass", data=np.full(count, proton_mass * Avogadro))
         particle.add_property("source_id", type="int", data=np.repeat(np.arange(1, len(fronts) + 1, dtype=np.int32), len(axial)))
         return [particle]

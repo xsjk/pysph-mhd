@@ -7,6 +7,8 @@ from typing import override
 import numpy as np
 
 from ..application import MHDApplication
+from ..constants import ARGON_MASS, H_MASS, K_B
+from ..tabulated_eos import tabulated_energy_at_temperature
 
 
 @dataclass(frozen=True)
@@ -65,6 +67,16 @@ def jet_basis(direction):
 
 
 class JetApplication(MHDApplication):
+    def energy_at_temperature(self, number_density, temperature, material):
+        if self.config.physics.plasma_eos:
+            from ..plasma_eos import E_TABLE, H_E_TABLE, N_GRID, T_GRID  # ruff: ignore[import-outside-top-level] -- Only enabled plasma runs need the table.
+
+            table = {0: E_TABLE, 2: H_E_TABLE}[material]
+            return tabulated_energy_at_temperature(number_density, temperature, N_GRID, T_GRID, table)
+        # The ideal baseline uses neutral Ar and fully ionized H.
+        mass, charge = {0: (ARGON_MASS, 0), 2: (H_MASS, 1)}[material]
+        return (1 + charge) * K_B * temperature / ((self.gamma - 1) * mass)
+
     @override
     def create_particles(self):
         (particle,) = self.create_mhd_particles()
@@ -73,5 +85,5 @@ class JetApplication(MHDApplication):
         self.scheme.setup_properties(particle)
         # The scheme removes extra properties; restore gun IDs before GPU upload.
         particle.add_property("source_id", type="int", data=source_id)
-        particle.set_output_arrays([*particle.output_property_arrays, "source_id", "material_id", "molar_mass", "divBsymm", "divBdiff", "psi", "converged"])
+        particle.set_output_arrays([*particle.output_property_arrays, "source_id", "material_id", "divBsymm", "divBdiff", "psi", "converged"])
         return [particle]

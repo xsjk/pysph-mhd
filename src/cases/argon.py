@@ -6,14 +6,9 @@ import numpy as np
 from pysph.base.utils import get_particle_array
 
 from ..config import SimulationConfig
+from ..constants import ARGON_MASS, EV_TO_K
 from .jets import JetApplication, LatitudeRingsConfig, jet_basis, latitude_rings
 from .lattice import close_packed_lattice
-
-ARGON_MASS_NUMBER = 39.948
-ARGON_MOLAR_MASS = 0.039948
-ATOMIC_MASS = 1.6726231e-27
-EV_TO_K = 11604.505
-GAS_CONSTANT = 8.31
 
 ARGON_MATERIAL_ID = 0
 
@@ -116,10 +111,9 @@ class ArgonJets(JetApplication):
         u, v, w = np.concatenate(velocities, axis=1)
         count_per_jet = len(axial)
         count = len(x)
-        rho = jet.number_density * ARGON_MASS_NUMBER * ATOMIC_MASS
+        rho = jet.number_density * ARGON_MASS
         temperature = jet.temperature_ev * EV_TO_K
-        pressure = rho * temperature * GAS_CONSTANT / ARGON_MOLAR_MASS
-        energy = pressure / ((self.gamma - 1.0) * rho)
+        energy = float(self.energy_at_temperature(jet.number_density, temperature, ARGON_MATERIAL_ID))
         particle_volume = pi * jet.radius**2 * jet.length / count_per_jet
         mass = rho * particle_volume
         particle = get_particle_array(
@@ -141,6 +135,9 @@ class ArgonJets(JetApplication):
             alpha1=np.zeros(count),
         )
         particle.add_property("material_id", type="int", data=np.full(count, ARGON_MATERIAL_ID, dtype=np.int32))
-        particle.add_property("molar_mass", data=np.full(count, ARGON_MOLAR_MASS))
         particle.add_property("source_id", type="int", data=np.repeat(np.arange(1, len(fronts) + 1, dtype=np.int32), count_per_jet))
         return [particle]
+
+    @override
+    def refresh_initial_thermodynamics(self, particle):
+        particle.e[:] = self.energy_at_temperature(particle.rho / ARGON_MASS, self.config.jet.temperature_ev * EV_TO_K, ARGON_MATERIAL_ID)

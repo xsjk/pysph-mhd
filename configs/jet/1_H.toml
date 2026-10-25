@@ -7,11 +7,12 @@ nx = 20
 radius = 0.030                 # m, detached cylindrical plasma
 length = 0.125                 # m
 axial_speed = 1.5e5            # m/s, north gun, inward along -z
-temperature_ev = 1.5           # Te=Ti, fully ionized ordinary hydrogen
-number_density = 4.5e22        # m^-3, ni=ne
+temperature_ev = 1.5           # Te=Ti; ionization follows the Saha EOS
+number_density = 4.5e22        # m^-3, hydrogen nucleus number density
 peak_field = 0.3               # T, continuous maximum; co-helicity, inward axis fields
 
 [physics]
+plasma_eos = true
 gamma = 1.6666666666666667
 mu0 = 1.25663706212e-6
 artificial_viscosity = 1.0
@@ -33,7 +34,7 @@ timestep_factor = 1.0
 
 [execution]
 backend = "cuda"
-fused = true
+fused = false
 directory = "outputs/1_H"
 
 [layout]

@@ -3,6 +3,7 @@ name = "mhdrotor"
 nx = 64
 
 [physics]
+plasma_eos = false
 gamma = 1.4
 mu0 = 1.0
 artificial_viscosity = 1.0

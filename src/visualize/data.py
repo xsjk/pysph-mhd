@@ -2,29 +2,25 @@
 
 import math
 
-import cuda.bindings.runtime as cudart
 import cupy as cp
 import h5py
 import numpy as np
-from scipy.constants import Boltzmann, proton_mass
 
-ARGON_MOLAR_MASS = 0.039948
-GAS_CONSTANT = 8.31
 ARROW_COUNT = 144
-FIELDS = ("gid", "x", "y", "z", "u", "v", "w", "h", "m", "rho", "p", "Bx", "By", "Bz")
+FIELDS = ("gid", "x", "y", "z", "u", "v", "w", "h", "m", "rho", "p", "Bx", "By", "Bz", "T", "material_id")
 
 PACK_FRAME_CUDA = r"""
 extern "C" __global__
 void pack_frame(const unsigned int* gid, const double* x, const double* y,
                 const double* z, const double* h, const double* mass,
-                const double* rho, const double* temperature_factor,
-                const double* pressure, const double* bx, const double* by,
+                const double* rho, const double* temperature_K,
+                const double* bx, const double* by,
                 const double* bz, float* output, int count) {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
     if (i >= count) return;
     int j = ((int)gid[i]) * 10;
     float density = (float)rho[i];
-    float temperature = (float)pressure[i] * (float)temperature_factor[i] / density;
+    float temperature = (float)temperature_K[i];
     output[j] = (float)x[i];
     output[j + 1] = (float)y[i];
     output[j + 2] = (float)z[i];
@@ -77,24 +73,25 @@ def read_frame(path):
             np.testing.assert_array_equal(np.sort(part["gid"]), np.arange(count))
             part["gid"] += offset
             offset += count
-            part["molar_mass"] = arrays["molar_mass"][...] if "molar_mass" in arrays and arrays["molar_mass"].size > 0 else np.full(count, ARGON_MOLAR_MASS)
-            part["temperature_factor"] = part["molar_mass"] / GAS_CONSTANT
-            if "material_id" in arrays and arrays["material_id"].size > 0:
-                part["temperature_factor"][arrays["material_id"][...] == 2] = proton_mass / (2.0 * Boltzmann)
             parts.append(part)
-        data = {field: np.concatenate([part[field] for part in parts]) for field in parts[0]}
+        data = {field: np.concatenate([part[field] for part in parts]) for field in FIELDS}
         count = len(data["gid"])
         time = float(handle["solver_data"].attrs["t"])
     assert all(len(values) == count for values in data.values())
     gids = data["gid"]
     assert gids.dtype == np.uint32
-    assert np.array_equal(np.sort(gids), np.arange(count, dtype=np.uint32))
+    assert data["material_id"].dtype == np.int32
+    assert all(data[field].dtype == np.float64 for field in FIELDS[1:-1])
+    assert np.all(data["T"] > 0)
     assert all(np.isfinite(data[field]).all() for field in FIELDS[1:])
     return time, data
 
 
 class GpuFrames:
     def __init__(self, context, paths, detail_radius):
+        import cuda.bindings.runtime as cudart  # ruff: ignore[import-outside-top-level] -- OpenGL interop is only needed for rendering.
+
+        self.cudart = cudart
         assert np.isfinite(detail_radius)
         assert detail_radius > 0.0
         self.detail_radius = detail_radius
@@ -116,7 +113,7 @@ class GpuFrames:
             particle_counts.append(len(data["gid"]))
             rho = data["rho"]
             pressure = data["p"]
-            temperature = pressure * data["temperature_factor"] / rho
+            temperature = data["T"]
             magnetic = np.sqrt(data["Bx"] ** 2 + data["By"] ** 2 + data["Bz"] ** 2)
             speed = np.sqrt(data["u"] ** 2 + data["v"] ** 2 + data["w"] ** 2)
             focus = distance <= self.view_radius if index == 0 else (data["x"] ** 2 + data["y"] ** 2 + data["z"] ** 2 <= self.view_radius**2)
@@ -195,6 +192,7 @@ class GpuFrames:
         return arrows
 
     def _upload_frame(self, context, data):
+        cudart = self.cudart
         count = len(data["gid"])
         size = count * 10 * 4
         buffer = context.buffer(reserve=size)
@@ -204,7 +202,7 @@ class GpuFrames:
         status, pointer, mapped_size = cudart.cudaGraphicsResourceGetMappedPointer(resource)
         assert status == cudart.cudaError_t.cudaSuccess
         assert mapped_size == size
-        device = [cp.asarray(data[field]) for field in ("gid", "x", "y", "z", "h", "m", "rho", "temperature_factor", "p", "Bx", "By", "Bz")]
+        device = [cp.asarray(data[field]) for field in ("gid", "x", "y", "z", "h", "m", "rho", "T", "Bx", "By", "Bz")]
         memory = cp.cuda.UnownedMemory(int(pointer), size, buffer)
         output = cp.ndarray((count, 10), dtype=cp.float32, memptr=cp.cuda.MemoryPointer(memory, 0))
         self.pack_frame(

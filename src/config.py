@@ -13,6 +13,7 @@ class CaseConfig:
 
 @dataclass(frozen=True)
 class PhysicsConfig:
+    plasma_eos: bool
     gamma: float
     mu0: float
     artificial_viscosity: float
@@ -97,6 +98,7 @@ def _validate_config(config):
     assert config.case.name
     assert type(config.case.nx) is int
     assert config.case.nx > 0
+    assert type(config.physics.plasma_eos) is bool
     assert type(config.physics.gamma) is float
     assert config.physics.gamma > 1.0
     assert type(config.physics.mu0) is float
@@ -126,6 +128,7 @@ def _validate_config(config):
     assert config.execution.backend in {"cython", "cuda", "opencl"}
     assert type(config.execution.fused) is bool
     assert not config.execution.fused or config.execution.backend == "cuda"
+    assert not (config.physics.plasma_eos and config.execution.fused), "plasma_eos requires execution.fused = false; fused CUDA does not support static table lookup yet."
     assert type(config.execution.directory) is str
     assert config.execution.directory
 
