@@ -71,6 +71,7 @@ class MHDScheme(Scheme):
 
             particle.add_property("T")
             particle.add_property("mean_charge")
+            particle.add_property("eos_t_index", type="int", data=-1)
             for name, values in EOS_CONSTANTS.items():
                 particle.add_constant(name, values)
             particle.set_output_arrays([*particle.output_property_arrays, "T", "mean_charge", "cs"])

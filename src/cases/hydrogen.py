@@ -42,7 +42,7 @@ class HydrogenConfig(SimulationConfig):
             assert isfinite(value)
             assert value > 0.0
         self.layout.validate()
-        assert self.numerics.periodic_mode is None
+        assert self.numerics.periodic_mode == "none"
 
 
 def field_parameters(gun):
@@ -102,7 +102,7 @@ class HydrogenJets(JetApplication):
 
             names = ("T", "mean_charge", "p", "cs")
             state = np.empty(4)
-            species_state(particle.rho[0], particle.e[0], N_GRID, T_GRID, H_E_TABLE, H_Z_TABLE, state, N_COUNT, T_COUNT, H_MASS, K_B)
+            species_state(particle.rho[0], particle.e[0], N_GRID, T_GRID, H_E_TABLE, H_Z_TABLE, state, N_COUNT, T_COUNT, H_MASS, K_B, -1)
         else:
             names = ("p", "cs")
             pressure = (self.gamma - 1) * particle.rho[0] * particle.e[0]

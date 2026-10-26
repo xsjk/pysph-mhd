@@ -15,6 +15,7 @@ artificial_magnetic_dissipation = 1.0
 kernel = "cubic"
 hfact = 1.2
 density = "iterate"
+periodic_mode = "none"
 cleaning_speed_factor = 1.0
 cleaning_damping_factor = 1.0
 
@@ -26,6 +27,8 @@ timestep_factor = 1.0
 
 [execution]
 backend = "cuda"
+nnps = "gpu_octree"
+octree_leaf_size = 512
 fused = false
 directory = "outputs/44_Ar_2_H"
 

@@ -125,12 +125,12 @@ class ArgonHydrogenEOS(Equation):
         return EOS_HELPERS
 
     @override
-    def loop(self, d_idx, d_p, d_rho, d_epred, d_cs, d_T, d_mean_charge, d_material_id, d_eos_n, d_eos_T, d_eos_e, d_eos_z, d_eos_h_e, d_eos_h_z):
+    def loop(self, d_idx, d_p, d_rho, d_epred, d_cs, d_T, d_mean_charge, d_material_id, d_eos_t_index, d_eos_n, d_eos_T, d_eos_e, d_eos_z, d_eos_h_e, d_eos_h_z):
         state = declare("matrix(4)")
         if d_material_id[d_idx] == 0:
-            species_state(d_rho[d_idx], d_epred[d_idx], d_eos_n, d_eos_T, d_eos_e, d_eos_z, state, self.n_count, self.t_count, ARGON_MASS, K_B)
+            d_eos_t_index[d_idx] = species_state(d_rho[d_idx], d_epred[d_idx], d_eos_n, d_eos_T, d_eos_e, d_eos_z, state, self.n_count, self.t_count, ARGON_MASS, K_B, d_eos_t_index[d_idx])
         elif d_material_id[d_idx] == 2:
-            species_state(d_rho[d_idx], d_epred[d_idx], d_eos_n, d_eos_T, d_eos_h_e, d_eos_h_z, state, self.n_count, self.t_count, H_MASS, K_B)
+            d_eos_t_index[d_idx] = species_state(d_rho[d_idx], d_epred[d_idx], d_eos_n, d_eos_T, d_eos_h_e, d_eos_h_z, state, self.n_count, self.t_count, H_MASS, K_B, d_eos_t_index[d_idx])
         d_T[d_idx] = state[0]
         d_mean_charge[d_idx] = state[1]
         d_p[d_idx] = state[2]

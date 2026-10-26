@@ -126,14 +126,14 @@ class PlasmaMHDStep(IntegratorStep):
         predict_mhd(d_idx, d_x0, d_y0, d_z0, d_x, d_y, d_z, d_u0, d_v0, d_w0, d_u, d_v, d_w, d_upred, d_vpred, d_wpred, d_e0, d_e, d_epred, d_au, d_av, d_aw, d_ae, d_h, d_h0, d_ah, d_cs, d_alpha1, d_alpha10, d_alphaloc, d_Bevolx, d_Bevoly, d_Bevolz, d_psi, d_Bevolxpred, d_Bevolypred, d_Bevolzpred, d_psipred, d_Bevolx0, d_Bevoly0, d_Bevolz0, d_psi0, d_itype, d_aBevolx, d_aBevoly, d_aBevolz, d_apsi, dt)
 
     @override
-    def stage2(self, d_idx, d_u, d_v, d_w, d_e, d_au, d_av, d_aw, d_ae, d_rho, d_p, d_cs, d_T, d_mean_charge, d_material_id, d_Bx, d_By, d_Bz, d_Bevolx, d_Bevoly, d_Bevolz, d_psi, d_itype, d_aBevolx, d_aBevoly, d_aBevolz, d_apsi, d_eos_n, d_eos_T, d_eos_e, d_eos_z, d_eos_h_e, d_eos_h_z, dt):
+    def stage2(self, d_idx, d_u, d_v, d_w, d_e, d_au, d_av, d_aw, d_ae, d_rho, d_p, d_cs, d_T, d_mean_charge, d_material_id, d_eos_t_index, d_Bx, d_By, d_Bz, d_Bevolx, d_Bevoly, d_Bevolz, d_psi, d_itype, d_aBevolx, d_aBevoly, d_aBevolz, d_apsi, d_eos_n, d_eos_T, d_eos_e, d_eos_z, d_eos_h_e, d_eos_h_z, dt):
         state = declare("matrix(4)")
         if d_itype[d_idx] == 1:
             correct_mhd(d_idx, d_u, d_v, d_w, d_e, d_au, d_av, d_aw, d_ae, d_rho, d_Bx, d_By, d_Bz, d_Bevolx, d_Bevoly, d_Bevolz, d_psi, d_aBevolx, d_aBevoly, d_aBevolz, d_apsi, dt)
         if d_material_id[d_idx] == 0:
-            species_state(d_rho[d_idx], d_e[d_idx], d_eos_n, d_eos_T, d_eos_e, d_eos_z, state, self.n_count, self.t_count, ARGON_MASS, K_B)
+            d_eos_t_index[d_idx] = species_state(d_rho[d_idx], d_e[d_idx], d_eos_n, d_eos_T, d_eos_e, d_eos_z, state, self.n_count, self.t_count, ARGON_MASS, K_B, d_eos_t_index[d_idx])
         elif d_material_id[d_idx] == 2:
-            species_state(d_rho[d_idx], d_e[d_idx], d_eos_n, d_eos_T, d_eos_h_e, d_eos_h_z, state, self.n_count, self.t_count, H_MASS, K_B)
+            d_eos_t_index[d_idx] = species_state(d_rho[d_idx], d_e[d_idx], d_eos_n, d_eos_T, d_eos_h_e, d_eos_h_z, state, self.n_count, self.t_count, H_MASS, K_B, d_eos_t_index[d_idx])
         d_T[d_idx] = state[0]
         d_mean_charge[d_idx] = state[1]
         d_p[d_idx] = state[2]

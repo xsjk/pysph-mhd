@@ -21,7 +21,7 @@ class MHDApplication(Application):
     pfreq: int
     timestep_factor: float
     nx: int
-    periodic_mode: str | None
+    periodic_mode: str
 
     def __init__(self, config):
         self.config = config
@@ -61,7 +61,7 @@ class MHDApplication(Application):
 
     @override
     def create_domain(self):
-        if self.periodic_mode is None:
+        if self.periodic_mode == "none":
             return DomainManager()
         xmin, xmax, ymin, ymax, zmin, zmax = self.bounds
         return DomainManager(

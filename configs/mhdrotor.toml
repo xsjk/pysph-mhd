@@ -26,5 +26,7 @@ timestep_factor = 1.0
 
 [execution]
 backend = "cuda"
+nnps = "ll"
+octree_leaf_size = 32
 fused = true
 directory = "outputs/mhdrotor"

@@ -26,5 +26,7 @@ timestep_factor = 0.5
 
 [execution]
 backend = "cuda"
+nnps = "ll"
+octree_leaf_size = 32
 fused = true
 directory = "outputs/jadvect"

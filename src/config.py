@@ -1,8 +1,7 @@
 import tomllib
-from dataclasses import dataclass, fields, is_dataclass
+from dataclasses import dataclass, is_dataclass
 from pathlib import Path
-from types import NoneType
-from typing import get_args, get_origin, get_type_hints
+from typing import get_type_hints
 
 
 @dataclass(frozen=True)
@@ -26,7 +25,7 @@ class NumericsConfig:
     kernel: str
     hfact: float
     density: str
-    periodic_mode: str | None
+    periodic_mode: str
     cleaning_speed_factor: float
     cleaning_damping_factor: float
 
@@ -42,6 +41,8 @@ class SolverConfig:
 @dataclass(frozen=True)
 class ExecutionConfig:
     backend: str
+    nnps: str
+    octree_leaf_size: int
     fused: bool
     directory: str
 
@@ -75,22 +76,9 @@ def parse_config(values, config_type):
 
 
 def _load_dataclass(config_type, values):
-    type_hints = get_type_hints(config_type)
-    config_fields = {field.name: type_hints[field.name] for field in fields(config_type)}
-    optional_fields = {name for name, field_type in config_fields.items() if NoneType in get_args(field_type)}
-    assert set(values) <= set(config_fields)
-    assert set(config_fields) - optional_fields <= set(values)
-    arguments = {name: _load_value(field_type, values[name]) for name, field_type in config_fields.items() if name in values}
-    arguments.update({name: None for name in optional_fields if name not in values})
-    return config_type(**arguments)
-
-
-def _load_value(field_type, value):
-    if is_dataclass(field_type):
-        return _load_dataclass(field_type, value)
-    if get_origin(field_type) is list and is_dataclass(get_args(field_type)[0]):
-        return [_load_dataclass(get_args(field_type)[0], item) for item in value]
-    return value
+    field_types = get_type_hints(config_type)
+    assert values.keys() == field_types.keys()
+    return config_type(**{name: _load_dataclass(field_type, values[name]) if is_dataclass(field_type) else values[name] for name, field_type in field_types.items()})
 
 
 def _validate_config(config):
@@ -113,7 +101,7 @@ def _validate_config(config):
     assert type(config.numerics.hfact) is float
     assert config.numerics.hfact > 0.0
     assert config.numerics.density in {"iterate", "single"}
-    assert config.numerics.periodic_mode in {None, "ghost", "minimum_image"}
+    assert config.numerics.periodic_mode in {"none", "ghost", "minimum_image"}
     assert type(config.numerics.cleaning_speed_factor) is float
     assert config.numerics.cleaning_speed_factor >= 0.0
     assert type(config.numerics.cleaning_damping_factor) is float
@@ -126,9 +114,11 @@ def _validate_config(config):
     assert type(config.solver.timestep_factor) is float
     assert config.solver.timestep_factor > 0.0
     assert config.execution.backend in {"cython", "cuda", "opencl"}
+    assert type(config.execution.nnps) is str
+    assert type(config.execution.octree_leaf_size) is int
+    assert config.execution.octree_leaf_size > 0
     assert type(config.execution.fused) is bool
     assert not config.execution.fused or config.execution.backend == "cuda"
-    assert not (config.physics.plasma_eos and config.execution.fused), "plasma_eos requires execution.fused = false; fused CUDA does not support static table lookup yet."
     assert type(config.execution.directory) is str
     assert config.execution.directory
 
@@ -143,4 +133,4 @@ def pysph_arguments(execution):
         False: (),
         True: ("--fused",),
     }[execution.fused]
-    return [*backend, *fused, "-d", execution.directory]
+    return [*backend, *fused, "--nnps", execution.nnps, "--octree-leaf-size", str(execution.octree_leaf_size), "-d", execution.directory]
